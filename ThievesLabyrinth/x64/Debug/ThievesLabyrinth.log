@@ -1,0 +1,84 @@
+﻿  compilation header save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\ThievesLabyrinth\DebugPS.csh
+  compilation object save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\x64\Debug\DebugPS.cso
+  compilation header save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\ThievesLabyrinth\DebugVS.csh
+  compilation object save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\x64\Debug\DebugVS.cso
+C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\Shaders\DefaultPS.hlsl(61,52): warning X4000: use of potentially uninitialized variable (vBaseColor)
+  
+  compilation header save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\ThievesLabyrinth\DefaultPS.csh
+  compilation object save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\x64\Debug\DefaultPS.cso
+C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\Shaders\DefaultVS.hlsl(45,29-56): warning X3206: 'mul': implicit truncation of vector type
+  
+  compilation header save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\ThievesLabyrinth\DefaultVS.csh
+  compilation object save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\x64\Debug\DefaultVS.cso
+C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\ThievesLabyrinth\DissolvePS.hlsl(63,52): warning X4000: use of potentially uninitialized variable (vBaseColor)
+  
+  compilation header save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\ThievesLabyrinth\DissolvePS.csh
+  compilation object save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\x64\Debug\DissolvePS.cso
+  compilation header save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\ThievesLabyrinth\SeeThroughPS.csh
+  compilation object save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\x64\Debug\SeeThroughPS.cso
+C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\ThievesLabyrinth\SkinnedVS.hlsl(112,19-63): warning X3206: 'mul': implicit truncation of vector type
+C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\ThievesLabyrinth\SkinnedVS.hlsl(125,29-55): warning X3206: 'mul': implicit truncation of vector type
+  
+  compilation header save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\ThievesLabyrinth\SkinnedVS.csh
+  compilation object save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\x64\Debug\SkinnedVS.cso
+  AIManager.cpp
+  AnimationManager.cpp
+  AnimatorComponent.cpp
+  ChickenController.cpp
+  DDSTextureLoader.cpp
+  HUD.cpp
+  Inventory.cpp
+  LightComponent.cpp
+  ProjectileComponent.cpp
+  BoxCollider.cpp
+  CapusleCollider.cpp
+  MageController.cpp
+  Button.cpp
+  AudioManager.cpp
+  CameraController.cpp
+  DebugManager.cpp
+  Collider.cpp
+  Component.cpp
+  ComponentManager.cpp
+  EnemyController.cpp
+  Generating Code...
+  Compiling...
+  Entity.cpp
+  EntityManager.cpp
+  EventManager.cpp
+  GameLogic.cpp
+  GUIManager.cpp
+  GAudio.cpp
+c:\users\danie\onedrive\escritorio\thieveslabyrinth\thieveslabyrinth\gaudiowin.hpp(2): warning C4067: unexpected tokens following preprocessor directive - expected a newline
+c:\users\danie\onedrive\escritorio\thieveslabyrinth\thieveslabyrinth\gaudiowin.hpp(765): warning C4101: 'e': unreferenced local variable
+c:\users\danie\onedrive\escritorio\thieveslabyrinth\thieveslabyrinth\gaudiowin.hpp(839): warning C4101: 'e': unreferenced local variable
+c:\users\danie\onedrive\escritorio\thieveslabyrinth\thieveslabyrinth\gaudiowin.hpp(1153): warning C4101: 'e': unreferenced local variable
+c:\users\danie\onedrive\escritorio\thieveslabyrinth\thieveslabyrinth\gaudiowin.hpp(1228): warning C4101: 'e': unreferenced local variable
+  InputManager.cpp
+  Level.cpp
+  LevelManager.cpp
+  Math.cpp
+  MemoryManager.cpp
+  Menu.cpp
+  MeshRenderer.cpp
+  FireDemonController.cpp
+  Pool.cpp
+  RenderManager.cpp
+c:\users\danie\onedrive\escritorio\thieveslabyrinth\thieveslabyrinth\rendermanager.cpp(741): warning C4244: 'argument': conversion from 'UINT' to 'float', possible loss of data
+  PhysicsManager.cpp
+  Rigidbody.cpp
+  Slider.cpp
+  SpikeTrapController.cpp
+c:\users\danie\onedrive\escritorio\thieveslabyrinth\thieveslabyrinth\spiketrapcontroller.cpp(41): warning C4244: '+=': conversion from 'double' to 'float', possible loss of data
+  Generating Code...
+c:\users\danie\onedrive\escritorio\thieveslabyrinth\thieveslabyrinth\gaudiowin.hpp(1426): warning C4715: 'WindowAppMusic::Stream': not all control paths return a value
+  Compiling...
+  Stats.cpp
+  System.cpp
+  Time.cpp
+  Transform.cpp
+  VikingController.cpp
+  WICTextureLoader.cpp
+  WinMain.cpp
+  Generating Code...
+  ThievesLabyrinth.vcxproj -> C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\x64\Debug\ThievesLabyrinth.exe
