@@ -1,16 +1,16 @@
 #include "PhysicsManager.h"
-//#include "InputManager.h"
 #include "EventManager.h"
 
-#include "Time.h"
+//#include "Time.h"
 #include "Level.h"
 #include "BoxCollider.h"
 #include "CapsuleCollider.h"
 #include "Rigidbody.h"
 #include "Entity.h"
 #include "Transform.h"
+#include "Stats.h"
 
-#include <iostream>
+//#include <iostream>
 #include <limits>
 
 #define OUT
@@ -33,17 +33,13 @@ CPhysicsManager::CPhysicsManager(CComponentManager* pComponentManager)
 
 #ifdef MULTI_THREADING
 
-	m_iFinishedThreads = 0;
-	m_dDelta = 0.0;
+	m_nFinishedThreads = 0;
+	m_fDelta = 0.0;
 	m_bShutDownFlag = false;
 
 	m_cBitMask.reset();
-	//for (int i = 0; i < BITSETSIZE; i++) m_cBitMask[i] = 0;
-
-	for (size_t i = 0; i < RIGIDBODYTHREADS; i++)
-	{
-		threads.push_back(std::thread(&CPhysicsManager::UpdateRigidBodies, this, 0.0));
-	}
+	for (int i = 0; i < RIGIDBODYTHREADS; i++)
+		threads.emplace_back(&CPhysicsManager::UpdateRigidBodies, this, 0.0);
 
 #endif // MULTI_THREADING
 
@@ -58,10 +54,7 @@ CPhysicsManager::~CPhysicsManager()
 	m_cGunCondition.notify_all();
 	m_cMainMutex.unlock();
 
-	for (auto& thread : threads)
-	{
-		thread.join();
-	}
+	for (auto& thread : threads) thread.join();
 
 #endif // 
 
@@ -74,16 +67,14 @@ void CPhysicsManager::Update(float fDeltaTime)
 
 #ifdef MULTI_THREADING
 
+	m_fDelta = fDeltaTime;
 	std::unique_lock<std::mutex> cMainULock(m_cMainMutex);
-
-	m_dDelta = fDeltaTime;
 	m_cGunCondition.notify_all();
-	m_cMainWait.wait(cMainULock, [&](){ return m_iFinishedThreads == RIGIDBODYTHREADS; });
+	m_cMainWait.wait(cMainULock, [&](){ return m_nFinishedThreads == RIGIDBODYTHREADS; });
+	cMainULock.unlock();
+	m_nFinishedThreads = 0;
 
-	m_iFinishedThreads = 0;
-
-#endif
-#ifndef MULTI_THREADING
+#else
 	UpdateRigidBodies(fDeltaTime);
 #endif
 
@@ -103,53 +94,19 @@ void CPhysicsManager::UpdateComponentLists()
 		m_StaticGridPositions.clear();
 	}
 
-#pragma region Debug Draw Grid
-
-	if (m_pcCurrentRoom != nullptr && false)
-	{
-		static const int nCellCountX = ROOM_WIDTH / CELL_SIZE;
-		static const int nCellCountZ = ROOM_HEIGHT / CELL_SIZE;
-		static const int nCellSize = CELL_SIZE;
-
-		CMath::TVECTOR3 RoomPosition = m_pcCurrentRoom->GetComponent<CTransform>()->GetPosition();
-
-		for (int i = 0; i <= nCellCountX; i++)
-		{
-			float offset = i - (float)(nCellCountX) / 2.0f;
-			float fXPosition = RoomPosition.x + (float)nCellSize * offset;
-
-			TDebugLineMessage vertex = TDebugLineMessage(CMath::TVECTOR3(fXPosition, 1.0f, RoomPosition.z + (float)ROOM_HEIGHT / 2.0f), CMath::TVECTOR4{ 0, 0.5f, 1, 1 });
-			CEventManager::SendDebugLineMessage(vertex);
-
-			vertex = TDebugLineMessage(CMath::TVECTOR3(fXPosition, 1.0f, RoomPosition.z - (float)ROOM_HEIGHT / 2.0f), CMath::TVECTOR4{ 0, 0.5f, 1, 1 });
-			CEventManager::SendDebugLineMessage(vertex);
-
-		}
-
-		for (int i = 0; i <= nCellCountZ; i++)
-		{
-			float offset = i - (float)(nCellCountZ) / 2.0f;
-			float fZPosition = RoomPosition.z + (float)nCellSize * offset;
-
-			TDebugLineMessage vertex = TDebugLineMessage(CMath::TVECTOR3(RoomPosition.x + (float)ROOM_WIDTH / 2.0f, 1.0f, fZPosition), CMath::TVECTOR4{ 0, 0.5f, 1, 1 });
-			CEventManager::SendDebugLineMessage(vertex);
-
-			vertex = TDebugLineMessage(CMath::TVECTOR3(RoomPosition.x - (float)ROOM_WIDTH / 2.0f, 1.0f, fZPosition), CMath::TVECTOR4{ 0, 0.5f, 1, 1 });
-			CEventManager::SendDebugLineMessage(vertex);
-
-		}
-	}
-#pragma endregion
-
 	if (!m_pcPlayerEntity)
 	{
 		TEntityMessage message = TEntityMessage(0);
 		m_pcPlayerEntity = (CPlayerEntity*)CEventManager::SendEntityMessage(message);
 	}
 
+	size_t nDynamic = m_cDynamicColliders.size(), nStatic = m_cStaticColliders.size(), nDynamicGrid = m_DynamicGridPositions.size();
 	m_DynamicGridPositions.clear();
 	m_cDynamicColliders.clear();
 	m_cStaticColliders.clear();
+	m_DynamicGridPositions.reserve(nDynamicGrid);
+	m_cDynamicColliders.reserve(nDynamic);
+	m_cStaticColliders.reserve(nStatic);
 
 	for (ICollider* collider : *m_pcColliders)
 	{
@@ -168,10 +125,6 @@ void CPhysicsManager::UpdateComponentLists()
 						{
 							m_cCollisions[other].erase(m_cCollisions[other].begin() + j);
 							m_cCollisions[collider].erase(m_cCollisions[collider].begin() + i);
-
-							//int nCollisionType = bIsTriggerCollision ? eCollisionState::TRIGGER_EXIT : eCollisionState::COLLISION_EXIT;
-							//TCollisionMessage message(collider->m_pcOwner->m_nEntityId, other->m_pcOwner->m_nEntityId, nCollisionType);
-							//CEventManager::SendCollisionMessage(message);
 						}
 					}
 				}
@@ -191,7 +144,7 @@ void CPhysicsManager::UpdateComponentLists()
 		{
 			m_cStaticColliders.push_back(collider);
 
-			if (m_StaticGridPositions.count(collider) < 1)
+			if (m_StaticGridPositions.count(collider) > 0)
 				continue;
 
 			if (collider->m_nComponentType == eComponent::BOX_COLLIDER)
@@ -211,7 +164,6 @@ void CPhysicsManager::UpdateComponentLists()
 				GetMinMaxOverlap(pCapCollider, tOverlapX, tOverlapZ);
 				SetStaticGridPositions(collider, tOverlapX, tOverlapZ);
 			}
-
 		}
 
 		else
@@ -244,57 +196,43 @@ void CPhysicsManager::UpdateRigidBodies(double dDeltaTime)
 
 	std::unique_lock<std::mutex> cGunLock(m_cMutexLock);
 
-	std::cout << "Thread: " << std::this_thread::get_id() << " started in UpdateRigidBodies\n";
 	m_cGunCondition.wait(cGunLock);
-	
-	int i = 0;
-	int nSize = 0;
-	//int nIndex = 0;
+	cGunLock.unlock();
+
+	short i;
 	while (!m_bShutDownFlag)
 	{
-		nSize = (int)m_pcRigidbodies->size();
-		for (i = 0; i < nSize; i++)
+		i = -1;
+		for (CRigidbody* rigidbody : *m_pcRigidbodies)
 		{
-			//nIndex = 9 - (i / 32);
+			i++;
+			if (!rigidbody->IsActive())
+				continue;
+
 			m_cMainMutex.lock();
 			if (!(m_cBitMask[i]))
 			{
 				m_cBitMask[i] = 1;
-				m_cMainMutex.unlock();
+				m_cMainMutex.unlock();						
 
-				CTransform* pcTransform = (*m_pcRigidbodies)[i]->m_pcOwner->GetComponent<CTransform>();
+				CTransform* pcTransform = rigidbody->m_pcOwner->GetComponent<CTransform>();
+				pcTransform->SetPosition(pcTransform->GetPosition() + (rigidbody->GetVelocity() * m_fDelta));				
 
-				if (pcTransform)
-				{
-					CMath::TVECTOR3 tVelocity = (*m_pcRigidbodies)[i]->GetVelocity();
-
-					CMath::TVECTOR3 tNewPosition = pcTransform->GetPosition();
-
-					tNewPosition += tVelocity * (float)m_dDelta;
-
-					pcTransform->SetPosition(tNewPosition);
-				}
 				continue;
 			}
 			m_cMainMutex.unlock();
 		}
 
+		cGunLock.lock();
 		m_cMainMutex.lock();
-		m_iFinishedThreads++;
-		if (m_iFinishedThreads == RIGIDBODYTHREADS)
-		{
+		if (++m_nFinishedThreads == RIGIDBODYTHREADS)
 			m_cBitMask.reset();
-			//for (int i = 0; i < BITSETSIZE; i++) m_cBitMask[i] = 0;
-		}
 		m_cMainWait.notify_all();
-		
 		m_cMainMutex.unlock();
-
 		m_cGunCondition.wait(cGunLock);
+		cGunLock.unlock();
 	}
-#endif
-
-#ifndef MULTI_THREADING
+#else
 
 	for (int i = 0; i < m_pcRigidbodies->size(); i++)
 	{
@@ -311,7 +249,7 @@ void CPhysicsManager::UpdateRigidBodies(double dDeltaTime)
 
 			pcTransform->SetPosition(tNewPosition);
 		}
-	}
+}
 
 #endif // !MULTI_THREADING
 
@@ -383,7 +321,6 @@ void CPhysicsManager::UpdateCollisions()
 	}
 }
 
-// TODO: RAYCAST REFACTOR
 bool CPhysicsManager::Raycast(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirection, float fMaxDistance)
 {
 	for (ICollider* collider : m_cDynamicColliders)
@@ -392,8 +329,8 @@ bool CPhysicsManager::Raycast(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirectio
 		{
 		case eComponent::CAPSULE_COLLIDER:
 		{
-			CMath::TVECTOR3 tCollisionPoint;
-			if (IsCollidingRayCapsule((CCapsuleCollider*)collider, tOrigin, tDirection, fMaxDistance, OUT tCollisionPoint))
+			CMath::TVECTOR3 tCollisionPoint, tCollisionExit;
+			if (IsCollidingRayCapsule((CCapsuleCollider*)collider, tOrigin, tDirection, fMaxDistance, OUT tCollisionPoint, OUT tCollisionExit))
 			{
 				return true;
 			}
@@ -403,8 +340,8 @@ bool CPhysicsManager::Raycast(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirectio
 
 		case eComponent::BOX_COLLIDER:
 		{
-			CMath::TVECTOR3 tCollisionPoint;
-			if (IsCollidingRayBox((CBoxCollider*)collider, tOrigin, CMath::Vector3Normalize(tDirection), fMaxDistance, OUT tCollisionPoint))
+			CMath::TVECTOR3 tCollisionPoint, tCollisionExit;
+			if (IsCollidingRayBox((CBoxCollider*)collider, tOrigin, CMath::Vector3Normalize(tDirection), fMaxDistance, OUT tCollisionPoint, OUT tCollisionExit))
 			{
 				return true;
 			}
@@ -423,8 +360,8 @@ bool CPhysicsManager::Raycast(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirectio
 		{
 		case eComponent::CAPSULE_COLLIDER:
 		{
-			CMath::TVECTOR3 tCollisionPoint;
-			if (IsCollidingRayCapsule((CCapsuleCollider*)collider, tOrigin, tDirection, fMaxDistance, OUT tCollisionPoint))
+			CMath::TVECTOR3 tCollisionPoint, tCollisionExit;
+			if (IsCollidingRayCapsule((CCapsuleCollider*)collider, tOrigin, tDirection, fMaxDistance, OUT tCollisionPoint, OUT tCollisionExit))
 			{
 				return true;
 			}
@@ -434,8 +371,8 @@ bool CPhysicsManager::Raycast(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirectio
 
 		case eComponent::BOX_COLLIDER:
 		{
-			CMath::TVECTOR3 tCollisionPoint;
-			if (IsCollidingRayBox((CBoxCollider*)collider, tOrigin, CMath::Vector3Normalize(tDirection), fMaxDistance, OUT tCollisionPoint))
+			CMath::TVECTOR3 tCollisionPoint, tCollisionExit;
+			if (IsCollidingRayBox((CBoxCollider*)collider, tOrigin, CMath::Vector3Normalize(tDirection), fMaxDistance, OUT tCollisionPoint, OUT tCollisionExit))
 			{
 				return true;
 			}
@@ -449,7 +386,7 @@ bool CPhysicsManager::Raycast(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirectio
 
 	return false;
 }
-bool CPhysicsManager::Raycast(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirection, TRayHit & tRayHit, CEntityMask nEntityMask)
+bool CPhysicsManager::Raycast(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirection, TRayHit & tRayHit, CEntityMask* cMask)
 {
 	float fMinDistance = std::numeric_limits<float>::infinity();
 
@@ -458,17 +395,18 @@ bool CPhysicsManager::Raycast(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirectio
 
 	for (ICollider* collider : m_cDynamicColliders)
 	{
-		int nMaskCheck = (collider->m_pcOwner->m_nEntityType + 1) * (collider->m_pcOwner->m_nEntityType + 1);
-
-		if (nEntityMask & nMaskCheck)
-			continue;
+		if (cMask)
+		{
+			if (!(cMask->nValue & 1 << collider->m_pcOwner->m_nEntityType))
+				continue;
+		}
 
 		switch (collider->m_nComponentType)
 		{
 		case eComponent::CAPSULE_COLLIDER:
 		{
-			CMath::TVECTOR3 tCollisionPoint;
-			if (!IsCollidingRayCapsule((CCapsuleCollider*)collider, tOrigin, tDirection, std::numeric_limits<float>::infinity(), OUT tCollisionPoint))
+			CMath::TVECTOR3 tCollisionPoint, tCollisionExit;
+			if (!IsCollidingRayCapsule((CCapsuleCollider*)collider, tOrigin, tDirection, std::numeric_limits<float>::infinity(), OUT tCollisionPoint, OUT tCollisionExit))
 				continue;
 
 			CMath::TVECTOR3 tOriginToCollisionPoint = tCollisionPoint - tOrigin;
@@ -476,7 +414,8 @@ bool CPhysicsManager::Raycast(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirectio
 			if (fSqDistanceOriginToCollisionPoint < fMinDistance)
 			{
 				tRayHit.tEntity = collider->m_pcOwner;
-				tRayHit.tCollisionPoint = tCollisionPoint;
+				tRayHit.tEntryPoint = tCollisionPoint;
+				tRayHit.tExitPoint = tCollisionExit;
 
 				fMinDistance = fSqDistanceOriginToCollisionPoint;
 			}
@@ -486,8 +425,8 @@ bool CPhysicsManager::Raycast(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirectio
 
 		case eComponent::BOX_COLLIDER:
 		{
-			CMath::TVECTOR3 tCollisionPoint;
-			if (!IsCollidingRayBox((CBoxCollider*)collider, tOrigin, tDirection, std::numeric_limits<float>::infinity(), OUT tCollisionPoint))
+			CMath::TVECTOR3 tCollisionPoint, tCollisionExit;
+			if (!IsCollidingRayBox((CBoxCollider*)collider, tOrigin, tDirection, std::numeric_limits<float>::infinity(), OUT tCollisionPoint, OUT tCollisionExit))
 				continue;
 
 			CMath::TVECTOR3 tOriginToCollisionPoint = tCollisionPoint - tOrigin;
@@ -496,7 +435,8 @@ bool CPhysicsManager::Raycast(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirectio
 			if (fSqDistanceOriginToCollisionPoint < fMinDistance)
 			{
 				tRayHit.tEntity = collider->m_pcOwner;
-				tRayHit.tCollisionPoint = tCollisionPoint;
+				tRayHit.tEntryPoint = tCollisionPoint;
+				tRayHit.tExitPoint = tCollisionExit;
 
 				fMinDistance = fSqDistanceOriginToCollisionPoint;
 			}
@@ -510,12 +450,18 @@ bool CPhysicsManager::Raycast(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirectio
 
 	for (ICollider* collider : m_cStaticColliders)
 	{
+		if (cMask)
+		{
+			if (!(cMask->nValue & 1 << collider->m_pcOwner->m_nEntityType))
+				continue;
+		}
+
 		switch (collider->m_nComponentType)
 		{
 		case eComponent::CAPSULE_COLLIDER:
 		{
-			CMath::TVECTOR3 tCollisionPoint;
-			if (!IsCollidingRayCapsule((CCapsuleCollider*)collider, tOrigin, tDirection, std::numeric_limits<float>::infinity(), OUT tCollisionPoint))
+			CMath::TVECTOR3 tCollisionPoint, tCollisionExit;
+			if (!IsCollidingRayCapsule((CCapsuleCollider*)collider, tOrigin, tDirection, std::numeric_limits<float>::infinity(), OUT tCollisionPoint, OUT tCollisionExit))
 				continue;
 
 			CMath::TVECTOR3 tOriginToCollisionPoint = tCollisionPoint - tOrigin;
@@ -523,7 +469,8 @@ bool CPhysicsManager::Raycast(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirectio
 			if (fSqDistanceOriginToCollisionPoint < fMinDistance)
 			{
 				tRayHit.tEntity = collider->m_pcOwner;
-				tRayHit.tCollisionPoint = tCollisionPoint;
+				tRayHit.tEntryPoint = tCollisionPoint;
+				tRayHit.tExitPoint = tCollisionExit;
 
 				fMinDistance = fSqDistanceOriginToCollisionPoint;
 			}
@@ -533,8 +480,8 @@ bool CPhysicsManager::Raycast(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirectio
 
 		case eComponent::BOX_COLLIDER:
 		{
-			CMath::TVECTOR3 tCollisionPoint;
-			if (!IsCollidingRayBox((CBoxCollider*)collider, tOrigin, tDirection, std::numeric_limits<float>::infinity(), OUT tCollisionPoint))
+			CMath::TVECTOR3 tCollisionPoint, tCollisionExit;
+			if (!IsCollidingRayBox((CBoxCollider*)collider, tOrigin, tDirection, std::numeric_limits<float>::infinity(), OUT tCollisionPoint, OUT tCollisionExit))
 				continue;
 
 			CMath::TVECTOR3 tOriginToCollisionPoint = tCollisionPoint - tOrigin;
@@ -543,7 +490,8 @@ bool CPhysicsManager::Raycast(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirectio
 			if (fSqDistanceOriginToCollisionPoint < fMinDistance)
 			{
 				tRayHit.tEntity = collider->m_pcOwner;
-				tRayHit.tCollisionPoint = tCollisionPoint;
+				tRayHit.tEntryPoint = tCollisionPoint;
+				tRayHit.tExitPoint = tCollisionExit;
 
 				fMinDistance = fSqDistanceOriginToCollisionPoint;
 			}
@@ -559,7 +507,7 @@ bool CPhysicsManager::Raycast(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirectio
 
 	return bHasRayCollided;
 }
-bool CPhysicsManager::Raycast(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirection, TRayHit & tRayHit, float fMaxDistance, CEntityMask nEntityMask)
+bool CPhysicsManager::Raycast(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirection, TRayHit & tRayHit, float fMaxDistance, CEntityMask* cMask)
 {
 	float fMinDistance = std::numeric_limits<float>::infinity();
 
@@ -568,17 +516,21 @@ bool CPhysicsManager::Raycast(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirectio
 
 	for (ICollider* collider : m_cDynamicColliders)
 	{
-		int nMaskCheck = (collider->m_pcOwner->m_nEntityType + 1) * (collider->m_pcOwner->m_nEntityType + 1);
-
-		if (nEntityMask & nMaskCheck)
+		if (collider->m_pcOwner == nullptr)
 			continue;
+
+		if (cMask)
+		{
+			if (!(cMask->nValue & 1 << collider->m_pcOwner->m_nEntityType))
+				continue;
+		}
 
 		switch (collider->m_nComponentType)
 		{
 		case eComponent::CAPSULE_COLLIDER:
 		{
-			CMath::TVECTOR3 tCollisionPoint;
-			if (!IsCollidingRayCapsule((CCapsuleCollider*)collider, tOrigin, tDirection, fMaxDistance, OUT tCollisionPoint))
+			CMath::TVECTOR3 tCollisionPoint, tCollisionExit;
+			if (!IsCollidingRayCapsule((CCapsuleCollider*)collider, tOrigin, tDirection, fMaxDistance, OUT tCollisionPoint, OUT tCollisionExit))
 				continue;
 
 			CMath::TVECTOR3 tOriginToCollisionPoint = tCollisionPoint - tOrigin;
@@ -586,7 +538,8 @@ bool CPhysicsManager::Raycast(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirectio
 			if (fSqDistanceOriginToCollisionPoint < fMinDistance)
 			{
 				tRayHit.tEntity = collider->m_pcOwner;
-				tRayHit.tCollisionPoint = tCollisionPoint;
+				tRayHit.tEntryPoint = tCollisionPoint;
+				tRayHit.tExitPoint = tCollisionExit;
 
 				fMinDistance = fSqDistanceOriginToCollisionPoint;
 			}
@@ -596,8 +549,8 @@ bool CPhysicsManager::Raycast(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirectio
 
 		case eComponent::BOX_COLLIDER:
 		{
-			CMath::TVECTOR3 tCollisionPoint;
-			if (!IsCollidingRayBox((CBoxCollider*)collider, tOrigin, tDirection, fMaxDistance, OUT tCollisionPoint))
+			CMath::TVECTOR3 tCollisionPoint, tCollisionExit;
+			if (!IsCollidingRayBox((CBoxCollider*)collider, tOrigin, tDirection, fMaxDistance, OUT tCollisionPoint, OUT tCollisionExit))
 				continue;
 
 			CMath::TVECTOR3 tOriginToCollisionPoint = tCollisionPoint - tOrigin;
@@ -606,7 +559,8 @@ bool CPhysicsManager::Raycast(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirectio
 			if (fSqDistanceOriginToCollisionPoint < fMinDistance)
 			{
 				tRayHit.tEntity = collider->m_pcOwner;
-				tRayHit.tCollisionPoint = tCollisionPoint;
+				tRayHit.tEntryPoint = tCollisionPoint;
+				tRayHit.tExitPoint = tCollisionExit;
 
 				fMinDistance = fSqDistanceOriginToCollisionPoint;
 			}
@@ -620,12 +574,18 @@ bool CPhysicsManager::Raycast(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirectio
 
 	for (ICollider* collider : m_cStaticColliders)
 	{
+		if (cMask)
+		{
+			if (!(cMask->nValue & 1 << collider->m_pcOwner->m_nEntityType))
+				continue;
+		}
+
 		switch (collider->m_nComponentType)
 		{
 		case eComponent::CAPSULE_COLLIDER:
 		{
-			CMath::TVECTOR3 tCollisionPoint;
-			if (!IsCollidingRayCapsule((CCapsuleCollider*)collider, tOrigin, tDirection, fMaxDistance, OUT tCollisionPoint))
+			CMath::TVECTOR3 tCollisionPoint, tCollisionExit;
+			if (!IsCollidingRayCapsule((CCapsuleCollider*)collider, tOrigin, tDirection, fMaxDistance, OUT tCollisionPoint, OUT tCollisionExit))
 				continue;
 
 			CMath::TVECTOR3 tOriginToCollisionPoint = tCollisionPoint - tOrigin;
@@ -633,7 +593,8 @@ bool CPhysicsManager::Raycast(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirectio
 			if (fSqDistanceOriginToCollisionPoint < fMinDistance)
 			{
 				tRayHit.tEntity = collider->m_pcOwner;
-				tRayHit.tCollisionPoint = tCollisionPoint;
+				tRayHit.tEntryPoint = tCollisionPoint;
+				tRayHit.tExitPoint = tCollisionExit;
 
 				fMinDistance = fSqDistanceOriginToCollisionPoint;
 			}
@@ -643,8 +604,8 @@ bool CPhysicsManager::Raycast(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirectio
 
 		case eComponent::BOX_COLLIDER:
 		{
-			CMath::TVECTOR3 tCollisionPoint;
-			if (!IsCollidingRayBox((CBoxCollider*)collider, tOrigin, tDirection, fMaxDistance, OUT tCollisionPoint))
+			CMath::TVECTOR3 tCollisionPoint, tCollisionExit;
+			if (!IsCollidingRayBox((CBoxCollider*)collider, tOrigin, tDirection, fMaxDistance, OUT tCollisionPoint, OUT tCollisionExit))
 				continue;
 
 			CMath::TVECTOR3 tOriginToCollisionPoint = tCollisionPoint - tOrigin;
@@ -653,7 +614,8 @@ bool CPhysicsManager::Raycast(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirectio
 			if (fSqDistanceOriginToCollisionPoint < fMinDistance)
 			{
 				tRayHit.tEntity = collider->m_pcOwner;
-				tRayHit.tCollisionPoint = tCollisionPoint;
+				tRayHit.tEntryPoint = tCollisionPoint;
+				tRayHit.tExitPoint = tCollisionExit;
 
 				fMinDistance = fSqDistanceOriginToCollisionPoint;
 			}
@@ -714,7 +676,116 @@ bool CPhysicsManager::RaycastMouseToFloor(CMath::TVECTOR3 tOrigin, CMath::TVECTO
 	return true;
 }
 
-void CPhysicsManager::PairwiseCollisionCheck(ICollider * pcA, ICollider * pcB, int nCollisionType, bool bIsTriggerCollision)
+bool CPhysicsManager::RayOverlap(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirection, std::vector<TRayHit>& results, float fMaxDistance, CEntityMask* cMask)
+{
+	if (CMath::Vector3Dot(tDirection, tDirection) != 1.0f)
+		tDirection = CMath::Vector3Normalize(tDirection);
+
+	for (ICollider* collider : m_cDynamicColliders)
+	{
+		if (cMask)
+		{
+			if (!(cMask->nValue & 1 << collider->m_pcOwner->m_nEntityType))
+				continue;
+		}
+
+		switch (collider->m_nComponentType)
+		{
+		case eComponent::CAPSULE_COLLIDER:
+		{
+			CMath::TVECTOR3 tCollisionPoint, tCollisionExit;
+			if (!IsCollidingRayCapsule((CCapsuleCollider*)collider, tOrigin, tDirection, fMaxDistance, OUT tCollisionPoint, OUT tCollisionExit))
+				continue;
+
+			CMath::TVECTOR3 tOriginToCollisionPoint = tCollisionPoint - tOrigin;
+			float fSqDistanceOriginToCollisionPoint = CMath::Vector3Dot(tOriginToCollisionPoint, tOriginToCollisionPoint);
+			
+			TRayHit tRayHit;
+			tRayHit.tEntity = collider->m_pcOwner;
+			tRayHit.tEntryPoint = tCollisionPoint;
+			tRayHit.tExitPoint = tCollisionExit;
+			results.push_back(tRayHit);
+
+			break;
+		}
+
+		case eComponent::BOX_COLLIDER:
+		{
+			CMath::TVECTOR3 tCollisionPoint, tCollisionExit;
+			if (!IsCollidingRayBox((CBoxCollider*)collider, tOrigin, tDirection, fMaxDistance, OUT tCollisionPoint, OUT tCollisionExit))
+				continue;
+
+			CMath::TVECTOR3 tOriginToCollisionPoint = tCollisionPoint - tOrigin;
+			float fSqDistanceOriginToCollisionPoint = CMath::Vector3Dot(tOriginToCollisionPoint, tOriginToCollisionPoint);
+
+
+			TRayHit tRayHit;
+			tRayHit.tEntity = collider->m_pcOwner;
+			tRayHit.tEntryPoint = tCollisionPoint;
+			tRayHit.tExitPoint = tCollisionExit;
+			results.push_back(tRayHit);
+
+			break;
+		}
+		default:
+			break;
+		}
+	}
+
+	for (ICollider* collider : m_cStaticColliders)
+	{
+		if (cMask)
+		{
+			if (!(cMask->nValue & 1 << collider->m_pcOwner->m_nEntityType))
+				continue;
+		}
+
+		switch (collider->m_nComponentType)
+		{
+		case eComponent::CAPSULE_COLLIDER:
+		{
+			CMath::TVECTOR3 tCollisionPoint, tCollisionExit;
+			if (!IsCollidingRayCapsule((CCapsuleCollider*)collider, tOrigin, tDirection, fMaxDistance, OUT tCollisionPoint, OUT tCollisionExit))
+				continue;
+
+			CMath::TVECTOR3 tOriginToCollisionPoint = tCollisionPoint - tOrigin;
+			float fSqDistanceOriginToCollisionPoint = CMath::Vector3Dot(tOriginToCollisionPoint, tOriginToCollisionPoint);
+			
+			TRayHit tRayHit;
+			tRayHit.tEntity = collider->m_pcOwner;
+			tRayHit.tEntryPoint = tCollisionPoint;
+			tRayHit.tExitPoint = tCollisionExit;
+			results.push_back(tRayHit);
+
+			break;
+		}
+
+		case eComponent::BOX_COLLIDER:
+		{
+			CMath::TVECTOR3 tCollisionPoint, tCollisionExit;
+			if (!IsCollidingRayBox((CBoxCollider*)collider, tOrigin, tDirection, fMaxDistance, OUT tCollisionPoint, OUT tCollisionExit))
+				continue;
+
+			CMath::TVECTOR3 tOriginToCollisionPoint = tCollisionPoint - tOrigin;
+			float fSqDistanceOriginToCollisionPoint = CMath::Vector3Dot(tOriginToCollisionPoint, tOriginToCollisionPoint);
+
+			TRayHit tRayHit;
+			tRayHit.tEntity = collider->m_pcOwner;
+			tRayHit.tEntryPoint = tCollisionPoint;
+			tRayHit.tExitPoint = tCollisionExit;
+			results.push_back(tRayHit);
+
+			break;
+		}
+		default:
+			break;
+		}
+	}
+
+	return results.size() > 0;
+}
+
+void CPhysicsManager::PairwiseCollisionCheck(ICollider* pcA, ICollider* pcB, int nCollisionType, bool bIsTriggerCollision)
 {
 	bool bIsColliding = false;
 	if (nCollisionType == eCollisionTypes::BOX_BOX)
@@ -785,7 +856,7 @@ void CPhysicsManager::PairwiseCollisionCheck(ICollider * pcA, ICollider * pcB, i
 		}
 	}
 }
-int CPhysicsManager::GetCollisionType(ICollider * pcA, ICollider * pcB)
+int CPhysicsManager::GetCollisionType(ICollider* pcA, ICollider* pcB)
 {
 	int nComponentType = -1;
 	switch (pcA->m_nComponentType)
@@ -890,10 +961,8 @@ void CPhysicsManager::UpdateBoxCapsuleCollision(CBoxCollider * pcA, CCapsuleColl
 
 bool CPhysicsManager::IsCollidingBoxBox(CBoxCollider* pA, CBoxCollider* pB, TCollision& tCollision)
 {
-	// Only check X and Z, Y isn't necessary
-	static const int nAxisCount = 2;
-	CMath::TVECTOR3 tLocalAxesA[nAxisCount];
-	CMath::TVECTOR3 tLocalAxesB[nAxisCount];
+	CMath::TVECTOR3 tLocalAxesA[3];
+	CMath::TVECTOR3 tLocalAxesB[3];
 
 	CTransform* tTransformA = pA->m_pcOwner->GetComponent<CTransform>();
 	CTransform* tTransformB = pB->m_pcOwner->GetComponent<CTransform>();
@@ -904,8 +973,11 @@ bool CPhysicsManager::IsCollidingBoxBox(CBoxCollider* pA, CBoxCollider* pB, TCol
 	tLocalAxesA[0] = CMath::TVECTOR3(tTransformMatrixA.r[0].x, tTransformMatrixA.r[0].y, tTransformMatrixA.r[0].z);
 	tLocalAxesB[0] = CMath::TVECTOR3(tTransformMatrixB.r[0].x, tTransformMatrixB.r[0].y, tTransformMatrixB.r[0].z);
 
-	tLocalAxesA[1] = CMath::TVECTOR3(tTransformMatrixA.r[2].x, tTransformMatrixA.r[2].y, tTransformMatrixA.r[2].z);
-	tLocalAxesB[1] = CMath::TVECTOR3(tTransformMatrixB.r[2].x, tTransformMatrixB.r[2].y, tTransformMatrixB.r[2].z);
+	tLocalAxesA[1] = CMath::TVECTOR3(tTransformMatrixA.r[1].x, tTransformMatrixA.r[1].y, tTransformMatrixA.r[1].z);
+	tLocalAxesB[1] = CMath::TVECTOR3(tTransformMatrixB.r[1].x, tTransformMatrixB.r[1].y, tTransformMatrixB.r[1].z);
+
+	tLocalAxesA[2] = CMath::TVECTOR3(tTransformMatrixA.r[2].x, tTransformMatrixA.r[2].y, tTransformMatrixA.r[2].z);
+	tLocalAxesB[2] = CMath::TVECTOR3(tTransformMatrixB.r[2].x, tTransformMatrixB.r[2].y, tTransformMatrixB.r[2].z);
 
 	// Values used to resolve collision
 	float fMinOverlap = std::numeric_limits<float>::infinity();
@@ -926,7 +998,7 @@ bool CPhysicsManager::IsCollidingBoxBox(CBoxCollider* pA, CBoxCollider* pB, TCol
 
 	// If the direction of collision and the resolution axis point in the same direction, flip the resolution axis
 	// Otherwise the object would move further inside the other object
-	if (CMath::Vector3Dot((tTransformA->GetPosition() + pA->GetCenter()) - (tTransformB->GetPosition() + pB->GetCenter()), tMinAxis) < 0)
+	if (CMath::Vector3Dot((tTransformA->GetPosition() + pA->GetLocalCenter()) - (tTransformB->GetPosition() + pB->GetLocalCenter()), tMinAxis) < 0)
 		tMinAxis *= -1;
 
 	// Offset the resolution amount so they are still colliding by a minimum amount after the resolution
@@ -983,7 +1055,7 @@ bool CPhysicsManager::IsCollidingBoxCapsule(CBoxCollider * pcA, CCapsuleCollider
 	CTransform* tBoxTransform = pcA->m_pcOwner->GetComponent<CTransform>();
 	CTransform* tCapTransform = pcB->m_pcOwner->GetComponent<CTransform>();
 
-	CMath::TVECTOR3 tBoxCenter = pcA->GetCenter() + tBoxTransform->GetPosition();
+	CMath::TVECTOR3 tBoxCenter = pcA->GetLocalCenter() + tBoxTransform->GetPosition();
 
 	CMath::TVECTOR3 tCapScale = tCapTransform->GetScale();
 	float fCapRadius = pcB->GetRadius() * tCapScale.x;
@@ -1008,38 +1080,13 @@ bool CPhysicsManager::IsCollidingBoxCapsule(CBoxCollider * pcA, CCapsuleCollider
 		tCollision.tAxis = CMath::Vector3Normalize(tClosestAABBPoint - tSphereCenter);
 	}
 
-	/*if (pcA->m_pcOwner->m_nEntityId == 76)
-	{
-		if (CInputManager::GetKeyPress('P'))
-		{
-			std::cout << "Player Position: " << pcB->m_pcOwner->GetComponent<CTransform>()->GetPosition() << std::endl;
-			std::cout << "Wall Position: " << tBoxTransform->GetPosition() << std::endl;
-			std::cout << "Player Capsule Limits: (" << tBottom.y << ", " << tTop.y << ")" << std::endl;
-			std::cout << "Closest Point Capsule to Center: " << tSphereCenter << std::endl;
-			std::cout << "Closest Point Box to Capsule: " << tClosestAABBPoint << std::endl;
-			std::cout << "Distance Between Points: " << fDistance << std::endl;
-			std::cout << "Player Radius: " << fCapRadius << std::endl;
-			if (isColliding)
-			{
-				std::cout << "COLLIDING\n\n";
-				std::cout << "Collision Axis: " << tCollision.tAxis << std::endl;
-				std::cout << "Collision Offset: " << tCollision.fOffset << "\n\n";
-			}
-
-			else
-			{
-				std::cout << "Not Colliding" << std::endl;
-			}
-		}
-	}*/
-
 	return isColliding;
 }
 bool CPhysicsManager::IsIntersecting(CMath::TVECTOR3 tAxis, CBoxCollider* pA, CBoxCollider* pB, float& fMinOverlap, CMath::TVECTOR3& tMinAxis)
 {
 	// Get only the top four vertices, since the Y axis is not being checked
-	CMath::TVECTOR3 tTopVerticesA[4];
-	CMath::TVECTOR3 tTopVerticesB[4];
+	CMath::TVECTOR3 tVerticesA[8];
+	CMath::TVECTOR3 tVerticesB[8];
 
 	CTransform* pcTransformA = pA->m_pcOwner->GetComponent<CTransform>();
 	CTransform* pcTransformB = pB->m_pcOwner->GetComponent<CTransform>();
@@ -1047,33 +1094,41 @@ bool CPhysicsManager::IsIntersecting(CMath::TVECTOR3 tAxis, CBoxCollider* pA, CB
 	CMath::TMATRIX tMatrixA = pcTransformA->GetMatrix();
 	CMath::TMATRIX tMatrixB = pcTransformB->GetMatrix();
 
-	CMath::TVECTOR3 tCenterA = pA->GetCenter();
-	CMath::TVECTOR3 tCenterB = pB->GetCenter();
+	CMath::TVECTOR3 tCenterA = pA->GetLocalCenter();
+	CMath::TVECTOR3 tCenterB = pB->GetLocalCenter();
 
-	CMath::TVECTOR3 tExtentA = pA->GetExtent() * pcTransformA->GetScale();
-	CMath::TVECTOR3 tExtentB = pB->GetExtent() * pcTransformB->GetScale();
+	CMath::TVECTOR3 tExtentA = pA->GetExtent();
+	CMath::TVECTOR3 tExtentB = pB->GetExtent();
 
-	tTopVerticesA[0] = CMath::Vector3Transform(tExtentA, tMatrixA) + tCenterA;
-	tTopVerticesA[1] = CMath::Vector3Transform(CMath::TVECTOR3{ -tExtentA.x,  tExtentA.y,   tExtentA.z }, tMatrixA) + tCenterA;
-	tTopVerticesA[2] = CMath::Vector3Transform(CMath::TVECTOR3{ -tExtentA.x,  tExtentA.y,  -tExtentA.z }, tMatrixA) + tCenterA;
-	tTopVerticesA[3] = CMath::Vector3Transform(CMath::TVECTOR3{ tExtentA.x,  tExtentA.y,  -tExtentA.z }, tMatrixA) + tCenterA;
+	tVerticesA[0] = CMath::Point3Transform(tExtentA, tMatrixA) + tCenterA;
+	tVerticesA[1] = CMath::Point3Transform(CMath::TVECTOR3{  tExtentA.x,   tExtentA.y,  -tExtentA.z }, tMatrixA) + tCenterA;
+	tVerticesA[2] = CMath::Point3Transform(CMath::TVECTOR3{  tExtentA.x,  -tExtentA.y,   tExtentA.z }, tMatrixA) + tCenterA;
+	tVerticesA[3] = CMath::Point3Transform(CMath::TVECTOR3{  tExtentA.x,  -tExtentA.y,  -tExtentA.z }, tMatrixA) + tCenterA;
+	tVerticesA[4] = CMath::Point3Transform(CMath::TVECTOR3{ -tExtentA.x,   tExtentA.y,   tExtentA.z }, tMatrixA) + tCenterA;
+	tVerticesA[5] = CMath::Point3Transform(CMath::TVECTOR3{ -tExtentA.x,   tExtentA.y,  -tExtentA.z }, tMatrixA) + tCenterA;
+	tVerticesA[6] = CMath::Point3Transform(CMath::TVECTOR3{ -tExtentA.x,  -tExtentA.y,   tExtentA.z }, tMatrixA) + tCenterA;
+	tVerticesA[7] = CMath::Point3Transform(CMath::TVECTOR3{ -tExtentA.x,  -tExtentA.y,  -tExtentA.z }, tMatrixA) + tCenterA;
 
-	tTopVerticesB[0] = CMath::Vector3Transform(tExtentB, tMatrixB) + tCenterB;
-	tTopVerticesB[1] = CMath::Vector3Transform(CMath::TVECTOR3{ -tExtentB.x,  tExtentB.y,   tExtentB.z }, tMatrixB) + tCenterB;
-	tTopVerticesB[2] = CMath::Vector3Transform(CMath::TVECTOR3{ -tExtentB.x,  tExtentB.y,  -tExtentB.z }, tMatrixB) + tCenterB;
-	tTopVerticesB[3] = CMath::Vector3Transform(CMath::TVECTOR3{ tExtentB.x,  tExtentB.y,  -tExtentB.z }, tMatrixB) + tCenterB;
+	tVerticesB[0] = CMath::Point3Transform(tExtentB, tMatrixB) + tCenterB;
+	tVerticesB[1] = CMath::Point3Transform(CMath::TVECTOR3{ tExtentB.x,   tExtentB.y,  -tExtentB.z }, tMatrixB) + tCenterB;
+	tVerticesB[2] = CMath::Point3Transform(CMath::TVECTOR3{ tExtentB.x,  -tExtentB.y,   tExtentB.z }, tMatrixB) + tCenterB;
+	tVerticesB[3] = CMath::Point3Transform(CMath::TVECTOR3{ tExtentB.x,  -tExtentB.y,  -tExtentB.z }, tMatrixB) + tCenterB;
+	tVerticesB[4] = CMath::Point3Transform(CMath::TVECTOR3{ -tExtentB.x,   tExtentB.y,   tExtentB.z }, tMatrixB) + tCenterB;
+	tVerticesB[5] = CMath::Point3Transform(CMath::TVECTOR3{ -tExtentB.x,   tExtentB.y,  -tExtentB.z }, tMatrixB) + tCenterB;
+	tVerticesB[6] = CMath::Point3Transform(CMath::TVECTOR3{ -tExtentB.x,  -tExtentB.y,   tExtentB.z }, tMatrixB) + tCenterB;
+	tVerticesB[7] = CMath::Point3Transform(CMath::TVECTOR3{ -tExtentB.x,  -tExtentB.y,  -tExtentB.z }, tMatrixB) + tCenterB;
 
 	// Get the min and max values between the projection of each vertex on the specified axis to check for a collision
 	float IntervalA[2];
 	float IntervalB[2];
 
-	IntervalA[0] = IntervalA[1] = CMath::Vector3Dot(tAxis, tTopVerticesA[0]);
-	IntervalB[0] = IntervalB[1] = CMath::Vector3Dot(tAxis, tTopVerticesB[0]);
+	IntervalA[0] = IntervalA[1] = CMath::Vector3Dot(tAxis, tVerticesA[0]);
+	IntervalB[0] = IntervalB[1] = CMath::Vector3Dot(tAxis, tVerticesB[0]);
 
-	for (int i = 1; i < 4; i++)
+	for (int i = 1; i < 8; i++)
 	{
-		float projectionA = CMath::Vector3Dot(tAxis, tTopVerticesA[i]);
-		float projectionB = CMath::Vector3Dot(tAxis, tTopVerticesB[i]);
+		float projectionA = CMath::Vector3Dot(tAxis, tVerticesA[i]);
+		float projectionB = CMath::Vector3Dot(tAxis, tVerticesB[i]);
 
 		IntervalA[0] = fminf(IntervalA[0], projectionA);
 		IntervalA[1] = fmaxf(IntervalA[1], projectionA);
@@ -1111,7 +1166,7 @@ void CPhysicsManager::ResolveCollision(CBoxCollider * pcA, CBoxCollider * pcB, T
 	{
 		CMath::TVECTOR3 tPosition = pcTransforms[0]->GetPosition();
 		tPosition.x += tCollision.tAxis.x * tCollision.fOffset;
-		tPosition.y += tCollision.tAxis.y * tCollision.fOffset;
+		//tPosition.y += tCollision.tAxis.y * tCollision.fOffset;
 		tPosition.z += tCollision.tAxis.z * tCollision.fOffset;
 		pcTransforms[0]->SetPosition(tPosition);
 	}
@@ -1121,7 +1176,7 @@ void CPhysicsManager::ResolveCollision(CBoxCollider * pcA, CBoxCollider * pcB, T
 	{
 		CMath::TVECTOR3 tPosition = pcTransforms[1]->GetPosition();
 		tPosition.x -= tCollision.tAxis.x * tCollision.fOffset;
-		tPosition.y -= tCollision.tAxis.y * tCollision.fOffset;
+		//tPosition.y -= tCollision.tAxis.y * tCollision.fOffset;
 		tPosition.z -= tCollision.tAxis.z * tCollision.fOffset;
 		pcTransforms[1]->SetPosition(tPosition);
 	}
@@ -1133,7 +1188,7 @@ void CPhysicsManager::ResolveCollision(CBoxCollider * pcA, CBoxCollider * pcB, T
 		float fOverlap = tCollision.fOffset;
 
 		float fSumX = fabsf(tVelocities[0].x) + fabsf(tVelocities[1].x);
-		float fSumY = fabsf(tVelocities[0].y) + fabsf(tVelocities[1].y);
+		//float fSumY = fabsf(tVelocities[0].y) + fabsf(tVelocities[1].y);
 		float fSumZ = fabsf(tVelocities[0].z) + fabsf(tVelocities[1].z);
 
 		CMath::TVECTOR3 tPositions[2] = { pcTransforms[0]->GetPosition(), pcTransforms[1]->GetPosition() };
@@ -1152,7 +1207,7 @@ void CPhysicsManager::ResolveCollision(CBoxCollider * pcA, CBoxCollider * pcB, T
 			tPositions[1].x -= tCollision.tAxis.x * (fOverlap / fSumX * fabs(tVelocities[1].x));
 		}
 
-		if (fSumY > 0)
+		/*if (fSumY > 0)
 		{
 			if ((tVelocities[0].y > 0 && tVelocities[1].y > 0) || (tVelocities[0].y < 0 && tVelocities[1].y < 0))
 			{
@@ -1164,7 +1219,7 @@ void CPhysicsManager::ResolveCollision(CBoxCollider * pcA, CBoxCollider * pcB, T
 
 			tPositions[0].y += tCollision.tAxis.y * (fOverlap / fSumY * fabsf(tVelocities[0].y));
 			tPositions[1].y -= tCollision.tAxis.y * (fOverlap / fSumY * fabsf(tVelocities[1].y));
-		}
+		}*/
 
 		if (fSumZ > 0)
 		{
@@ -1198,7 +1253,7 @@ void CPhysicsManager::ResolveCollision(CCapsuleCollider * pcA, CCapsuleCollider 
 	{
 		CMath::TVECTOR3 tPosition = pcTransforms[0]->GetPosition();
 		tPosition.x += tCollision.tAxis.x * tCollision.fOffset;
-		tPosition.y += tCollision.tAxis.y * tCollision.fOffset;
+		//tPosition.y += tCollision.tAxis.y * tCollision.fOffset;
 		tPosition.z += tCollision.tAxis.z * tCollision.fOffset;
 		pcTransforms[0]->SetPosition(tPosition);
 	}
@@ -1208,7 +1263,7 @@ void CPhysicsManager::ResolveCollision(CCapsuleCollider * pcA, CCapsuleCollider 
 	{
 		CMath::TVECTOR3 tPosition = pcTransforms[1]->GetPosition();
 		tPosition.x -= tCollision.tAxis.x * tCollision.fOffset;
-		tPosition.y -= tCollision.tAxis.y * tCollision.fOffset;
+		//tPosition.y -= tCollision.tAxis.y * tCollision.fOffset;
 		tPosition.z -= tCollision.tAxis.z * tCollision.fOffset;
 		pcTransforms[1]->SetPosition(tPosition);
 	}
@@ -1220,7 +1275,7 @@ void CPhysicsManager::ResolveCollision(CCapsuleCollider * pcA, CCapsuleCollider 
 		float fOverlap = tCollision.fOffset;
 
 		float fSumX = fabsf(tVelocities[0].x) + fabsf(tVelocities[1].x);
-		float fSumY = fabsf(tVelocities[0].y) + fabsf(tVelocities[1].y);
+		//float fSumY = fabsf(tVelocities[0].y) + fabsf(tVelocities[1].y);
 		float fSumZ = fabsf(tVelocities[0].z) + fabsf(tVelocities[1].z);
 
 		CMath::TVECTOR3 tPositions[2] = { pcTransforms[0]->GetPosition(), pcTransforms[1]->GetPosition() };
@@ -1239,7 +1294,7 @@ void CPhysicsManager::ResolveCollision(CCapsuleCollider * pcA, CCapsuleCollider 
 			tPositions[1].x -= tCollision.tAxis.x * (fOverlap / fSumX * fabs(tVelocities[1].x));
 		}
 
-		if (fSumY > 0)
+		/*if (fSumY > 0)
 		{
 			if ((tVelocities[0].y > 0 && tVelocities[1].y > 0) || (tVelocities[0].y < 0 && tVelocities[1].y < 0))
 			{
@@ -1251,7 +1306,7 @@ void CPhysicsManager::ResolveCollision(CCapsuleCollider * pcA, CCapsuleCollider 
 
 			tPositions[0].y += tCollision.tAxis.y * (fOverlap / fSumY * fabsf(tVelocities[0].y));
 			tPositions[1].y -= tCollision.tAxis.y * (fOverlap / fSumY * fabsf(tVelocities[1].y));
-		}
+		}*/
 
 		if (fSumZ > 0)
 		{
@@ -1285,7 +1340,7 @@ void CPhysicsManager::ResolveCollision(CBoxCollider * pcA, CCapsuleCollider * pc
 	{
 		CMath::TVECTOR3 tPosition = pcTransforms[0]->GetPosition();
 		tPosition.x += tCollision.tAxis.x * tCollision.fOffset;
-		tPosition.y += tCollision.tAxis.y * tCollision.fOffset;
+		//tPosition.y += tCollision.tAxis.y * tCollision.fOffset;
 		tPosition.z += tCollision.tAxis.z * tCollision.fOffset;
 		pcTransforms[0]->SetPosition(tPosition);
 	}
@@ -1295,7 +1350,7 @@ void CPhysicsManager::ResolveCollision(CBoxCollider * pcA, CCapsuleCollider * pc
 	{
 		CMath::TVECTOR3 tPosition = pcTransforms[1]->GetPosition();
 		tPosition.x -= tCollision.tAxis.x * tCollision.fOffset;
-		tPosition.y -= tCollision.tAxis.y * tCollision.fOffset;
+		//tPosition.y -= tCollision.tAxis.y * tCollision.fOffset;
 		tPosition.z -= tCollision.tAxis.z * tCollision.fOffset;
 		pcTransforms[1]->SetPosition(tPosition);
 	}
@@ -1307,7 +1362,7 @@ void CPhysicsManager::ResolveCollision(CBoxCollider * pcA, CCapsuleCollider * pc
 		float fOverlap = tCollision.fOffset;
 
 		float fSumX = fabsf(tVelocities[0].x) + fabsf(tVelocities[1].x);
-		float fSumY = fabsf(tVelocities[0].y) + fabsf(tVelocities[1].y);
+		//float fSumY = fabsf(tVelocities[0].y) + fabsf(tVelocities[1].y);
 		float fSumZ = fabsf(tVelocities[0].z) + fabsf(tVelocities[1].z);
 
 		CMath::TVECTOR3 tPositions[2] = { pcTransforms[0]->GetPosition(), pcTransforms[1]->GetPosition() };
@@ -1326,7 +1381,7 @@ void CPhysicsManager::ResolveCollision(CBoxCollider * pcA, CCapsuleCollider * pc
 			tPositions[1].x -= tCollision.tAxis.x * (fOverlap / fSumX * fabs(tVelocities[1].x));
 		}
 
-		if (fSumY > 0)
+		/*if (fSumY > 0)
 		{
 			if ((tVelocities[0].y > 0 && tVelocities[1].y > 0) || (tVelocities[0].y < 0 && tVelocities[1].y < 0))
 			{
@@ -1338,7 +1393,7 @@ void CPhysicsManager::ResolveCollision(CBoxCollider * pcA, CCapsuleCollider * pc
 
 			tPositions[0].y += tCollision.tAxis.y * (fOverlap / fSumY * fabsf(tVelocities[0].y));
 			tPositions[1].y -= tCollision.tAxis.y * (fOverlap / fSumY * fabsf(tVelocities[1].y));
-		}
+		}*/
 
 		if (fSumZ > 0)
 		{
@@ -1465,7 +1520,10 @@ void CPhysicsManager::ClosestPtSegmentSegment(CMath::TVECTOR3 tP0, CMath::TVECTO
 
 	// Calculate closest point scalar t on Line 2 to P(s)
 	// t = Dot((P0 + u*s) - Q0, v) / Dot(v,v) = (b*s + e) / c
-	t = (b*s + e) / c;
+	if (c != 0)
+	{
+		t = (b*s + e) / c;
+	}
 
 	// If t is within 0 and 1 (Q(t) is within the segment) then finish
 	// Else, clamp t and recompute to find s
@@ -1513,7 +1571,7 @@ void CPhysicsManager::ClosestPtLineSegment(CMath::TVECTOR3 tP0, CMath::TVECTOR3 
 void CPhysicsManager::ClosestPtPointOBB(CMath::TVECTOR3 tPoint, CBoxCollider * pcB, CMath::TVECTOR3 & tResult)
 {
 	CTransform* tTransform = pcB->m_pcOwner->GetComponent<CTransform>();
-	CMath::TVECTOR3 tCenter = tTransform->GetPosition() + pcB->GetCenter();
+	CMath::TVECTOR3 tCenter = tTransform->GetPosition() + pcB->GetLocalCenter();
 
 	CMath::TVECTOR3 tMinAxis = tPoint - tCenter;
 
@@ -1525,7 +1583,7 @@ void CPhysicsManager::ClosestPtPointOBB(CMath::TVECTOR3 tPoint, CBoxCollider * p
 	CMath::TMATRIX tTransformMatrix = tTransform->GetMatrix();
 
 	tLocalAxes[0] = CMath::Vector3Normalize(CMath::TVECTOR3(tTransformMatrix.r[0].x, tTransformMatrix.r[0].y, tTransformMatrix.r[0].z));
-	tLocalAxes[1] = CMath::Vector3Normalize(CMath::TVECTOR3(0, 1, 0));
+	tLocalAxes[1] = CMath::Vector3Normalize(CMath::TVECTOR3(tTransformMatrix.r[1].x, tTransformMatrix.r[1].y, tTransformMatrix.r[1].z));
 	tLocalAxes[2] = CMath::Vector3Normalize(CMath::TVECTOR3(tTransformMatrix.r[2].x, tTransformMatrix.r[2].y, tTransformMatrix.r[2].z));
 
 	CMath::TMATRIX tRotationMatrix = tTransformMatrix;
@@ -1540,14 +1598,10 @@ void CPhysicsManager::ClosestPtPointOBB(CMath::TVECTOR3 tPoint, CBoxCollider * p
 	{
 		float fDistance = CMath::Vector3Dot(tMinAxis, tLocalAxes[i]);
 
-		// Temp assume infinite y
-		if (i != 1)
-		{
 			if (fDistance > tExtent.mData[i])
 				fDistance = tExtent.mData[i];
 			if (fDistance < -tExtent.mData[i])
 				fDistance = -tExtent.mData[i];
-		}
 
 		tResult = tResult + tLocalAxes[i] * fDistance;
 	}
@@ -1623,7 +1677,7 @@ int CPhysicsManager::FindGridPositionZ(CMath::TVECTOR3 tPosition, int nMin, int 
 void CPhysicsManager::GetMinMaxOverlap(CBoxCollider* collider, CMath::TVECTOR2& tOverlapX, CMath::TVECTOR2& tOverlapY)
 {
 	CTransform* pcTransform = collider->m_pcOwner->GetComponent<CTransform>();
-	CMath::TVECTOR3 tPosition = pcTransform->GetPosition() + collider->GetCenter();
+	CMath::TVECTOR3 tPosition = pcTransform->GetPosition() + collider->GetLocalCenter();
 
 	const int COLUMNS = ROOM_WIDTH / CELL_SIZE;
 	const int ROWS = ROOM_HEIGHT / CELL_SIZE;
@@ -1710,7 +1764,7 @@ void CPhysicsManager::SetDynamicGridPositions(ICollider* collider, CMath::TVECTO
 	}
 }
 
-bool CPhysicsManager::IsCollidingRayBox(CBoxCollider * pBoxCollider, CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tNormDirection, float fMaxDistance, CMath::TVECTOR3 & tCollisionPoint)
+bool CPhysicsManager::IsCollidingRayBox(CBoxCollider * pBoxCollider, CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tNormDirection, float fMaxDistance, CMath::TVECTOR3 & tCollisionPoint, CMath::TVECTOR3& tCollisionExit)
 {
 	/*  The formula to find the point in which a ray is at a specific time t is:
 		Point p = ray.origin + ray.direction * t;
@@ -1741,15 +1795,15 @@ bool CPhysicsManager::IsCollidingRayBox(CBoxCollider * pBoxCollider, CMath::TVEC
 	CTransform* pcTransform = pBoxCollider->m_pcOwner->GetComponent<CTransform>();
 	CMath::TMATRIX tMatrix = pcTransform->GetMatrix();
 
-	CMath::TVECTOR3 tCenterPosition = pcTransform->GetPosition() + pBoxCollider->GetCenter();
+	CMath::TVECTOR3 tCenterPosition = pcTransform->GetPosition() + pBoxCollider->GetLocalCenter();
 	CMath::TVECTOR3 tExtents = pBoxCollider->GetExtent() * pcTransform->GetScale();
 
 	// Get the local axes of the OOB based on the transform of the entity
 	const int nAxesCount = 3;
 	CMath::TVECTOR3 tLocalAxes[nAxesCount];
-	tLocalAxes[0] = CMath::TVECTOR3(tMatrix.r[0].x, tMatrix.r[0].y, tMatrix.r[0].z);
-	tLocalAxes[1] = CMath::TVECTOR3(tMatrix.r[1].x, tMatrix.r[1].y, tMatrix.r[1].z);
-	tLocalAxes[2] = CMath::TVECTOR3(tMatrix.r[2].x, tMatrix.r[2].y, tMatrix.r[2].z);
+	tLocalAxes[0] = CMath::Vector3Normalize(CMath::TVECTOR3(tMatrix.r[0].x, tMatrix.r[0].y, tMatrix.r[0].z));
+	tLocalAxes[1] = CMath::Vector3Normalize(CMath::TVECTOR3(tMatrix.r[1].x, tMatrix.r[1].y, tMatrix.r[1].z));
+	tLocalAxes[2] = CMath::Vector3Normalize(CMath::TVECTOR3(tMatrix.r[2].x, tMatrix.r[2].y, tMatrix.r[2].z));
 
 	// The vector from the origin of the ray to the center of the OOB
 	CMath::TVECTOR3 tOriginToCenter = tCenterPosition - tOrigin;
@@ -1788,82 +1842,64 @@ bool CPhysicsManager::IsCollidingRayBox(CBoxCollider * pBoxCollider, CMath::TVEC
 	if (fGreatestMin > fSmallestMax)
 		return false;
 
-	float fDistanceAlongRay = fGreatestMin < 0.0f ? fSmallestMax : fGreatestMin;
+	float fEntryDistance = fGreatestMin < 0.0f ? fSmallestMax : fGreatestMin;
 
-	if (fDistanceAlongRay > fMaxDistance)
+	if (fEntryDistance > fMaxDistance)
 		return false;
 
-	tCollisionPoint = tOrigin + tNormDirection * fDistanceAlongRay;
+	tCollisionPoint = tOrigin + tNormDirection * fEntryDistance;
+	tCollisionExit = tOrigin + tNormDirection * fSmallestMax;
 
 	return true;
 
 }
-bool CPhysicsManager::IsCollidingRayCapsule(CCapsuleCollider * pCapCollider, CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tNormDirection, float fMaxDistance, CMath::TVECTOR3 & tCollisionPoint)
+bool CPhysicsManager::IsCollidingRayCapsule(CCapsuleCollider * pCapCollider, CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tNormDirection, float fMaxDistance, CMath::TVECTOR3 & tCollisionEntry, CMath::TVECTOR3& tCollisionExit)
 {
 	CMath::TVECTOR3 tCapsuleBottom, tCapsuleTop;
 	pCapCollider->GetMiddleSegment(OUT tCapsuleBottom, OUT tCapsuleTop);
 
-	CMath::TVECTOR3 tClosestPointRay, tClosestPointCapsule;
-	ClosestPtSegmentSegment(tOrigin, tOrigin + tNormDirection * fMaxDistance, tCapsuleBottom, tCapsuleTop, OUT tClosestPointRay, OUT tClosestPointCapsule);
+	// THIS CODE IS NOT ACCURATE, ASSUMES SPHERE FROM INACCURATE APROXIMATION
 
-	float fDistanceBetweenPoints = CMath::Vector3Magnitude(tClosestPointCapsule - tClosestPointRay);
+	CMath::TVECTOR3 tClosestPointRay, tSphereCenter;
+	ClosestPtSegmentSegment(tOrigin, tOrigin + tNormDirection * fMaxDistance, tCapsuleBottom, tCapsuleTop, OUT tClosestPointRay, OUT tSphereCenter);
 
-	CTransform* pcCapTransform = pCapCollider->m_pcOwner->GetComponent<CTransform>();
-	CMath::TVECTOR3 tCapScale = pcCapTransform->GetScale();
-	float fCapRadius = pCapCollider->GetRadius() * tCapScale.x;
+	float radius = pCapCollider->GetRadius() * pCapCollider->m_pcOwner->GetComponent<CTransform>()->GetScale().x;
 
-	if (fDistanceBetweenPoints <= fCapRadius)
-	{
-		float fCollisionDepth = fCapRadius - fDistanceBetweenPoints;
-		tCollisionPoint = tClosestPointRay - (tNormDirection * -1.0f) * fCollisionDepth;
+	CMath::TVECTOR3 tE = tSphereCenter - tOrigin;
 
-		return true;
-	}
+	float fA = CMath::Vector3Dot(tNormDirection, tE);
 
-	return false;
+	float fEMagSq = CMath::Vector3Dot(tE, tE);
+
+	float fBSq = fEMagSq - fA * fA;
+	
+	if (fBSq > radius * radius)
+		return false;
+
+	float fFSq = radius * radius - fBSq;
+
+	float fF = sqrtf(fFSq);
+
+	float t = fA - fF;
+
+	if (t < 0.0f)
+		return false;
+
+	tCollisionEntry = tOrigin + tNormDirection * t;
+	tCollisionExit = tOrigin + tNormDirection * (t + 2 * fF);
+
+	return true;
 }
 
-CEntityMask::CEntityMask(const int nEntityType)
+void CEntityMask::Add(int nEntityType)
 {
-	mask = 0;
-	*this += nEntityType;
+	nValue |= 1 << nEntityType;
 }
-CEntityMask::CEntityMask(const int * nEntityTypes, int nCount)
+void CEntityMask::Remove(int nEntityType)
 {
-	mask = 0;
-	for (int i = 0; i < nCount; i++)
-	{
-		*this += nEntityTypes[i];
-	}
+	nValue ^= 1 << nEntityType;
 }
-CEntityMask CEntityMask::operator+(const int nEntityType) const
+void CEntityMask::Invert()
 {
-	CEntityMask copy;
-	copy.mask = mask;
-
-	copy.mask |= (nEntityType + 1) * (nEntityType + 1);
-
-	return copy;
-}
-CEntityMask CEntityMask::operator-(const int nEntityType) const
-{
-	const int nSqEntityType = ((nEntityType + 1) * (nEntityType + 1));
-	CEntityMask copy = *this;
-	int compare = *this & nSqEntityType;
-
-	copy.mask ^= ~(compare);
-
-	return copy;
-}
-void CEntityMask::operator+=(const int nEntityType)
-{
-	*this = *this + nEntityType;
-}
-void CEntityMask::operator-=(const int nEntityType)
-{
-	*this = *this - nEntityType;
-}
-int CEntityMask::operator&(const int nMaskCheck) const
-{
-	return mask & nMaskCheck;
+	nValue = ~nValue;
 }

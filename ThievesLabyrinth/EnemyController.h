@@ -2,19 +2,57 @@
 #include "Component.h"
 
 class IEntity;
+class CTransform;
+class CRigidbody;
+class CMeshRenderer;
+class CAnimatorComponent;
+class CStats;
+class CProjectileEntity;
+class CPathAgent;
 
 class IEnemyController : public IComponent
 {
-public:
+protected:
+	CTransform*			m_pcTransform;
+	CRigidbody*			m_pcRigidbody;
+	CMeshRenderer*		m_pcMeshRenderer;
+	CAnimatorComponent*	m_pcAnimator;
+	CStats*				m_pcStats;
+	CPathAgent*			m_pcAgent;
+
+	CProjectileEntity*	m_pcProjectileRef;
+	CTransform*			m_pcPlayerTransform;
+
+	int					m_nEnemyType;
+	float				m_fSafeDistance;
+
+	float				m_fFlashingTime;
+
 	float m_fDeathTimer;
 
-	IEnemyController(IEntity* pcOwner);
+	virtual void InitializeComponents();
+	virtual void InitializeProjectile() = 0;
 
-	virtual void Update() = 0;
+	bool RaycastToPlayer() const;
+	bool IsMoving() const;
+	bool IsDead() const;
 
-	virtual void GetPlayerReference() = 0;
+	float GetDistanceToPlayer() const;
+	void SwitchAnimation(int nAnimation, bool bOverride, float fTime = 0.0f, float fSpeed = 1.0f);
 
-	int m_nEnemyType;
+public:
+	IEnemyController(IEntity* pcOwner) : IComponent(pcOwner) {}
+	virtual ~IEnemyController() {}
 
-	float m_fSafeDistance;
+	virtual void Update(float fDeltaTime);
+	void GetPlayerReference();
+
+	float GetSafeDistance();
+	float GetDeathTimer();
+
+	float GetFlashTime();
+
+	void ResetFlashTimer();
+
+	int GetEnemyType();
 };

@@ -32,19 +32,22 @@ struct VERTEX
 {
 	float4 vPosition : POSITION;
 	float3 vNormal : NORMAL;
-	float2 vUV : TEXTURECOORD;
+	float2 vUV : TEXCOORD;
 	float4 vJointIndex : JOINT_INDEX;
 	float4 vWeights : WEIGHTS;
+	float4 vTangent : TANGENT;
 };
 
 struct OUTPUT
 {
 	float4 vPosition : SV_POSITION;
+	float2 vUV : TEXCOORD;
 	float3 vWorldPos : WPOSITION;
 	float3 vNormal : NORMAL;
-	float2 vUV : TEXTURECOORD;
 	float2 vNDC : NDCPOS;
+	float3 vTangent : TANGENT;
 };
+
 
 float4x4 QuaternionToMatrix(float4 quat)
 {
@@ -92,8 +95,10 @@ OUTPUT main(VERTEX input)
 
 	float4 vSkinnedPos = float4( 0, 0, 0, 0 );
 	float3 vSkinnedNorm = float3( 0, 0, 0 );
+	float3 vSkinnedTangent = float3( 0, 0, 0 );
 
-	input.vPosition.w = 1;
+	input.vPosition.w = 1.0f;
+	input.vTangent.w = 1.0f;
 
 	for(int i = 0; i < 4; i++)
 	{
@@ -109,7 +114,8 @@ OUTPUT main(VERTEX input)
 		float4x4 joint = mul(mBindpose[input.vJointIndex[i]], GetMatrixFromTexture(vUV));
 
 		vSkinnedPos += mul(input.vPosition, joint) * input.vWeights[i];
-		vSkinnedNorm += mul(input.vNormal, joint * input.vWeights[i]).xyz;
+		vSkinnedNorm += mul(float4(input.vNormal, 0.0f), joint * input.vWeights[i]).xyz;
+		vSkinnedTangent += mul(input.vTangent, joint * input.vWeights[i]).xyz;
 	}
 
 	output.vPosition = mul(vSkinnedPos, modeling);
@@ -122,8 +128,8 @@ OUTPUT main(VERTEX input)
 
 
 
-	output.vNormal = normalize(mul(vSkinnedNorm, modeling)).xyz;
-
+	output.vNormal = normalize(mul(float4(vSkinnedNorm, 0.0f), modeling).xyz);
+	output.vTangent = normalize(mul(float4(vSkinnedTangent, 0.0f), modeling).xyz);
 	output.vUV = input.vUV;
 
 	return output;

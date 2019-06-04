@@ -17,13 +17,14 @@ class CTransform;
 class CAnimatorManager;
 class CComponentManager;
 class CMeshRenderer;
-
+class CParticleEmitter;
 
 struct TVertex
 {
 	XMFLOAT4 vPos;
 	XMFLOAT3 vNormal;
 	XMFLOAT2 vUV;
+	XMFLOAT4 vTangent;
 };
 
 struct TDebugVertex
@@ -39,6 +40,7 @@ struct TSkinnedVertex
 	XMFLOAT2 vUV;
 	XMFLOAT4 vJointIndex;
 	XMFLOAT4 vWeights;
+	XMFLOAT4 vTangent;
 };
 
 struct TPointLight
@@ -52,6 +54,11 @@ struct TModelConstantBuffer
 	XMMATRIX mWorldMatrix;
 };
 
+struct TColorConstantBuffer
+{
+	XMFLOAT4 vBaseColor;
+};
+
 struct TCameraConstantBuffer
 {
 	XMMATRIX mViewMatrix;
@@ -62,9 +69,7 @@ struct TResourceConstantBuffer
 {
 	XMFLOAT2 vScreenResolution;
 	BOOL bHasResource[3];
-	float fMaskingValue;
-	float fOutlineValue;
-	float fTime;
+	XMFLOAT3 vPadding;
 };
 
 struct TLightsConstantBuffer
@@ -75,9 +80,16 @@ struct TLightsConstantBuffer
 	TPointLight tLights[MAX_LIGHTS];
 };
 
+struct TVectorConstantBuffer
+{
+	XMFLOAT4 vVector;
+};
+
 class CRenderManager : public ISystem
 {
 private:
+	ID3D11Debug*				DebugDevice = nullptr;
+
 	ID3D11Device*				m_pd3dDevice;
 	ID3D11DeviceContext*		m_pd3dDeviceContext;
 	static IDXGISwapChain*		m_pd3dSwapChain;
@@ -96,7 +108,9 @@ private:
 	ID3D11VertexShader*			m_pd3dVertexShader[eVertexShader::COUNT];
 	ID3D11PixelShader*			m_pd3dPixelShader[ePixelShader::COUNT];
 
-	ID3D11ShaderResourceView*	m_pd3dSRV[eTexture::COUNT];
+	ID3D11Texture2D*			m_pd3dTexture[eTexture::COUNT];
+	ID3D11ShaderResourceView*	m_pd3dSRV[eSRV::COUNT];
+	ID3D11UnorderedAccessView*	m_pd3dUAV[eUAV::COUNT];
 
 	ID3D11InputLayout*			m_pd3dInputLayout[eInputLayout::COUNT];
 
@@ -110,11 +124,11 @@ private:
 
 	HWND						m_cWindow;
 
-	static CGUIManager*			m_pcGUIManager;
+	CGUIManager*				m_pcGUIManager;
 	CAnimatorManager*			m_pcAnimatorManager;
 
 
-	static TCameraConstantBuffer m_tCameraBuffer;
+	
 
 	XMMATRIX					m_d3dViewMatrix;
 	XMMATRIX					m_d3dProjMatrix;
@@ -127,23 +141,42 @@ private:
 
 	void RenderMesh(CMeshRenderer* pcMesh);
 
+	void RenderParticles(XMVECTOR vCameraPos, CParticleEmitter* pcEmitter);
+
+	void CreateResources(int nWidth, int nHeight, bool bReleaseResources);
+
 		//DELETE THIS	
 		bool	bIsDissolveShaderEnabled = false;
+		static float m_fBrightness;
 
 public:
+
+	float fMaskValue = 2;
+
+	static TCameraConstantBuffer m_tCameraBuffer;
+
 	CRenderManager(HWND cWindow, CComponentManager* pcComponentManager);
 
-	static void ResizeEvent(float nWidth, float nHeight);
+	void ResizeEvent(float nWidth, float nHeight);
 
 	void Draw();
 
+	// Does almost everything Draw does
+	// Just Skips most of the rendering stuff
+	// The main game uses
+	void DrawLogos();
+
 	void AddButtonToMenu(int menu, void(*pFunction)(), const WCHAR* buttonText, int width, int height, float left = 0.0f, float right = 0.1f, float top = 0.0f, float bottom = 0.1f);
-	void AddSliderToMenu(int menu, int nType, int width, int height,
+	void AddSliderToMenu(int menu, int nVary, int nType, int width, int height,
 		float left, float right, float top, float bottom);
 	void SetTitleToMenu(int menu, const WCHAR* title_text, float left, float right, float top, float bottom);
-	void AddDescriptionToMenu(int menu, const WCHAR* text, float left, float right, float top, float bottom);
+	void AddDescriptionToMenu(int menu, const WCHAR* text, float left = 0.0f, float right = 0.0f, float top = 0.0f, float bottom = 0.0f);
 	void ChangeCurrentMenu(int menu);
 	int GetMenuState();
+
+	static float GetBrightness();
+
+	static void SetBrightness(float fBrightness);
 
 	~CRenderManager();
 };

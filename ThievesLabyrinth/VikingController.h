@@ -9,31 +9,27 @@ class CStats;
 
 class CVikingController : public IEnemyController
 {
-	CTransform*				m_pcTransform;
-	CTransform*				m_pcTarget;
-	CRigidbody*				m_pcRigidbody;
-	CAnimatorComponent*		m_pcAnimator;
-	CStats*					m_pcStats;
-
-	CProjectileEntity*		m_pcMeleeRef;
-
-	float					m_fLastAttackTime;
+	int						m_nEnemyCount;
 
 	bool					m_bIsAttacking;
 
-	void Attack();
+	bool					m_bHasAttacked;
 
-	void Init();
+	bool					m_bIsMad;
+
+	bool					m_bEnemyCountSet;
 
 public:
 	CVikingController(IEntity* pcOwner);
+	~CVikingController();
 
-	void Update();
-
-	void GetPlayerReference();
+	void Update(float fDeltaTime);
 
 	CVikingController& operator=(CVikingController& cCopy);
 
-	~CVikingController();
+private:
+	void Attack();
+	void InitializeProjectile() override;
+
 };
 

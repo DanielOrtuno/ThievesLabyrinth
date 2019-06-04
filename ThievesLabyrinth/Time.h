@@ -31,7 +31,11 @@ public:
 	// Get the difference of time in seconds
 	static float GetDeltaF();
 
+	// Get the total time the timer has been updating since the last restart call
 	static double GetTotalTime();
+
+	// Restart the clock
+	static void Restart();
 
 	~CTime();
 };

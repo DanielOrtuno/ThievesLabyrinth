@@ -50,8 +50,21 @@ CLightComponent& CLightComponent::operator=(CLightComponent & cCopy)
 	m_vColor = cCopy.m_vColor;
 	m_vLightPosition = cCopy.m_vLightPosition;
 	m_fRadius = cCopy.m_fRadius;
+	
 
 	return *this;
+}
+
+bool CLightComponent::operator==(const CLightComponent * cRight)
+{
+	if (CMath::IsEqual(m_fRadius, cRight->m_fRadius) &&
+		CMath::IsEqual(m_vColor, cRight->m_vColor) && 
+		CMath::IsEqual(m_vLightPosition, cRight->m_vLightPosition)
+		)
+	{
+		return true;
+	}
+	return false;
 }
 
 CLightComponent::~CLightComponent()

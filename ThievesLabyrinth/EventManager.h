@@ -9,94 +9,57 @@
 
 class CPlayerEntity;
 class CRenderManager;
+class CAudioManager;
+class CEntityManager;
+class CDebugManager;
+class CGUIManager;
 
 struct TDebugMessage
 {
-public:
 	TDebugMessage(std::string szMessage);
-
-	std::string GetDebugMessage();
-
-private:
-
 	std::string m_szMessageString;
+	std::string GetDebugMessage();
 };
 
 struct TDebugLineMessage
 {
-public:
-	TDebugLineMessage(CMath::TVECTOR3 _tPosition, CMath::TVECTOR4 _tColor);
-	CMath::TVECTOR3 GetPosition();
-	CMath::TVECTOR4 GetColor();
-
-private:
 	CMath::TVECTOR3 m_tPosition;
 	CMath::TVECTOR4 m_tColor;
+	TDebugLineMessage();
+	TDebugLineMessage(CMath::TVECTOR3 _tPosition, CMath::TVECTOR4 _tColor);
 };
 
 struct TAudioMessage
 {
-public:
 	TAudioMessage(bool _bTrue, int _nType, int _nSound = 0);
-
-	static bool GetTruth();
-	static int GetType();
-	static int GetSound();
-
-	
-private:
-	static bool bTrue;
-	static int nType, nSound;
+	bool bTrue;
+	int nType, nSound;
 };
 
 struct TEntityMessage
 {
-public:
 	TEntityMessage(int _nEntityID);
-
-	int GetID();
-
-private:
 	int nEntityID;
-	IEntity* Entity;
 };
 
 struct TWindowResizeMessage
 {
-public:
 	TWindowResizeMessage(unsigned int _nWidth, unsigned int _nHeight);
-	int GetWidth();
-	int GetHeight();
-
-private:
 	int nWidth;
 	int nHeight;
 };
 
 struct TCollisionMessage
 {
-public:
 	TCollisionMessage(int _nCollider, int _nCollidingWith, int _nCollisionType);
-	int GetCollider();
-	int GetCollidingWith();
-	int GetCollisionType();
-
-private:
 	int nCollider;
-	int nCollidingWith;
+	int nCollidingWidth;
 	int nCollisionType;
 };
 
 struct THudMessage
 {
-public:
 	THudMessage(float _fCurrHealth, float _fMaxHealth, float _fCurrMana, float _fMaxMana);
-	float GetCurrentHealth();
-	float GetMaxHealth();
-	float GetCurrentMana();
-	float GetMaxMana();
-
-private:
 	float fCurrHealth;
 	float fMaxHealth;
 	float fCurrMana;
@@ -105,42 +68,12 @@ private:
 
 class CEventManager : ISystem
 {
-public:
-
-	CEventManager(CRenderManager* pcRenderer);
-	~CEventManager();
-
-	void AddPlayerReceiver(CPlayerEntity cReceiver);
-	
-	static void SendDebugMessage(TDebugMessage cMessage);
-
-	static void SendDebugLineMessage(TDebugLineMessage cMessage);
-
-	static void SendAudioMessage(TAudioMessage cMessage);
-
-	static void SendResizeMessage(TWindowResizeMessage cMessage);
-
-	static void SendCollisionMessage(TCollisionMessage cMessage);
-
-	static IEntity* SendEntityMessage(TEntityMessage cMessage);
-
-	static void SendHudMessage(THudMessage cMessage);
-
-	void Notify();
-
-
-
-private:
-
 	void ParseDebugMessage();
 	void ParseDebugLineMessage();
 	void ParseAudioMessage();
 	void ParseCollissionMessage();
 	void ParseResizeMessage();
 	void ParseHUDMessage();
-
-	static std::vector<CPlayerEntity>			m_cEntityReceivers;
-	static std::queue<TEntityMessage>			m_cEntityMessages;
 	
 	static std::queue<TDebugMessage>*			m_cDebugMessages;
 	static std::queue<TDebugLineMessage>*		m_cDebugLineMessages;
@@ -150,6 +83,8 @@ private:
 	static std::queue<THudMessage>*				m_cHudMessages;
 
 	CRenderManager*								m_pcRenderManager;
+	CAudioManager*								m_pcAudioManager;
+	CEntityManager*								m_pcEntityManager;
 
 #ifdef MULTI_THREADING
 
@@ -166,6 +101,29 @@ private:
 	int											m_nWorkingThreads;
 
 #endif // MULTI_THREADING
+public:
+	void ClearMessages();
+
+
+	CEventManager(CRenderManager* pcRenderer, CAudioManager* pcAudio, CEntityManager* pcEntity);
+	~CEventManager();
+
+
+	static void SendDebugMessage(TDebugMessage cMessage);
+
+	static void SendDebugLineMessage(TDebugLineMessage cMessage);
+
+	static void SendAudioMessage(TAudioMessage cMessage);
+
+	static void SendResizeMessage(TWindowResizeMessage cMessage);
+
+	static void SendCollisionMessage(TCollisionMessage cMessage);
+
+	static IEntity* SendEntityMessage(TEntityMessage cMessage);
+
+	static void SendHudMessage(THudMessage cMessage);
+
+	void Notify();
 
 	
 };

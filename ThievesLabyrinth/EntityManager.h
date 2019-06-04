@@ -2,6 +2,7 @@
 #define OPTION 1
 
 #include "EventManager.h"
+#include "EnumTypes.h"
 #include "Pool.h"
 #include <vector>
 
@@ -18,6 +19,11 @@ class CEnvironmentEntity;
 class CDoorEntity;
 class CTrapEntity;
 class IComponent;
+class CSpawnEntity;
+class CPathSurface;
+class CItemEntity;
+class CParticle;
+class CParticleEntity;
 
 class CEntityManager 
 {
@@ -26,14 +32,16 @@ class CEntityManager
 	static CPlayerEntity*					m_pcPlayer;
 	static CCameraEntity*					m_pcCamera;
 
-	//static CFlaggedPool<CEnemyEntity, 20>*	m_pcKnightsPool;
 
-	static std::vector<CEnemyEntity*>		m_pcEnemies;
-	static std::vector<CProjectileEntity*>	m_pcProjectiles;
-	static std::vector<CRoomEntity*>		m_pcRooms;
-	static std::vector<CEnvironmentEntity*> m_pcEnvironmentEntities;
-	static std::vector<CTrapEntity*>		m_pcTrapEntities;
-	static std::vector<CDoorEntity*>		m_pcDoorEntities;
+	static std::vector<CEnemyEntity*>		 m_pcEnemies;
+	static std::vector<CProjectileEntity*>	 m_pcProjectiles;
+	static std::vector<CRoomEntity*>		 m_pcRooms;
+	static std::vector<CEnvironmentEntity*>  m_pcEnvironmentEntities;
+	static std::vector<CDoorEntity*>		 m_pcDoorEntities;
+	static std::vector<CTrapEntity*>		 m_pcTrapEntities;
+	static std::vector<CSpawnEntity*>		 m_pcSpawnEntities;
+	static std::vector<CItemEntity*>		 m_pcItemEntities;
+	static std::vector<CParticleEntity*>	 m_pcParticleEntities;
 
 	static std::vector<IEntity*>			m_pcDeletionQueue;
 
@@ -60,10 +68,11 @@ public:
 
 	static IEntity* CloneEntity(IEntity* pcEntityToCopy);
 
-	//TODO
-	static void NotifyCollisionMessage(int nCollider, int nCollidingWith, int nCollisionType);
+	void NotifyCollisionMessage(int nCollider, int nCollidingWith, int nCollisionType);
 
 	static void ProcessDeletionQueue();
+
+	static CCameraEntity* GetCameraEntity();
 
 	~CEntityManager();
 };

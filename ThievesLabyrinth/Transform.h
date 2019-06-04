@@ -31,13 +31,15 @@ public:
 	void SetScale(CMath::TVECTOR3 tScale);
 	void SetMatrix(CMath::TMATRIX mMat);
 
+	void ResetTransform();
+
 	// Sets the forward vector to be the new forward
-	void LookAt(CMath::TVECTOR3 newForward);
+	void LookAt(CMath::TVECTOR3 newForward, CMath::TVECTOR3 up = { 0,1,0 });
 
 	// Smoothly transitions the forward vector to be set as the new forward
-	void TurnTo(CMath::TVECTOR3 newForward, float = 10);
+	void TurnTo(CMath::TVECTOR3 newForward, float fSpeed = 10);
 	// Smoothly transitions the forwards vector to point towards the target position
-	void TurnTo(CTransform* target);
+	void TurnTo(CTransform* target, float fDeltaTime, float fSpeed = 500);
 
 	void RenderTransform();
 

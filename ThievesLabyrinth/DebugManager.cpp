@@ -2,28 +2,24 @@
 #include "EventManager.h"
 
 #include <iostream>
+#include <fstream>
 
 int CDebugManager::m_nLineCount;
-CDebugManager::TDebugVertex CDebugManager::m_tDebugLines[100024];
+TDebugLineMessage CDebugManager::m_tDebugLines[MAX_DEBUG_LINES];
 void CDebugManager::DebugLog(TDebugMessage Message)
 {
-	std::cout << Message.GetDebugMessage() << std::endl;
+	std::cout << Message.m_szMessageString << std::endl;
 }
 
 void CDebugManager::AddDebugVertex(TDebugLineMessage Message)
 {
 	
-	if(m_nLineCount == 100024)
+	if(m_nLineCount == MAX_DEBUG_LINES)
 	{
 		std::cout << "Debug Lines limit reached." << std::endl;
+		return;
 	}
-
-	TDebugVertex tNewVertex;
-
-	tNewVertex.tPos = Message.GetPosition();
-	tNewVertex.tColor = Message.GetColor();
-
-	m_tDebugLines[m_nLineCount++] = tNewVertex;
+	m_tDebugLines[m_nLineCount++] = Message;
 }
 
 void* CDebugManager::GetDebugLineVertices()
@@ -52,7 +48,8 @@ LONG __stdcall CDebugManager::errorFunc(struct _EXCEPTION_POINTERS * pExceptionI
 
 	wcsftime(buff, sizeof(buff), L"%A_%b%d_%I%M%p.mdmp", &newTime);
 
-	HANDLE hFile = ::CreateFileW(L"dumpfile.mdmp", GENERIC_WRITE, FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+
+	HANDLE hFile = CreateFileW(L"dumpfile.mdmp", GENERIC_WRITE, FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 
 	if (hFile != INVALID_HANDLE_VALUE)
 	{
@@ -63,7 +60,7 @@ LONG __stdcall CDebugManager::errorFunc(struct _EXCEPTION_POINTERS * pExceptionI
 		ExInfo.ClientPointers = NULL;
 		MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(), hFile, MiniDumpNormal, &ExInfo, NULL, NULL);
 		//MessageBox((HWIND)"Dump File Saved look x directory please email to developer at the following email adress crashdmp@gmail.com with the subject Gamename - Version ");
-		::CloseHandle(hFile);
+		CloseHandle(hFile);
 	}
 
 	return 0;

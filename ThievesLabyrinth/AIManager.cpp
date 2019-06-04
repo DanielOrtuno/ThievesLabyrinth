@@ -2,10 +2,18 @@
 #include "Time.h"
 #include "Rigidbody.h"
 #include "ComponentManager.h"
+#include "EventManager.h"
+#include "InputManager.h"
+#include "PhysicsManager.h"
+
 #include "MageController.h"
 #include "ChickenController.h"
-#include "Transform.h"
+#include "KnightController.h"
 
+#include "Transform.h"
+#include "PathAgent.h"
+#include "PathSurface.h"
+#include "Level.h"
 #include "EnumTypes.h"
 #include "Stats.h"
 #include "Entity.h"
@@ -28,7 +36,7 @@ CMath::TVECTOR3 CAIManager::GetSeparationAccel(IEnemyController * pcEnemy)
 
 		float fDistance = CMath::Vector3Magnitude(tDistanceVector);
 
-		float fSafeDistance = pcEnemy->m_fSafeDistance + controller->m_fSafeDistance;
+		float fSafeDistance = pcEnemy->GetSafeDistance() + controller->GetSafeDistance();
 
 		float fSpeed = CMath::Vector3Magnitude(pcRigidBody->GetVelocity());
 		float fOtherSpeed = CMath::Vector3Magnitude(pcRigidBody->GetVelocity());
@@ -55,65 +63,94 @@ CAIManager::CAIManager(CComponentManager* pcComponentManager)
 {
 	m_pcComponentManager = pcComponentManager;
 	m_fSeparationStrength = 500.0f;
+	m_pcPlayerAgent = nullptr;
+	m_bCalculateWeights = false;
+	currentRoom = CLevel::m_pcCurrentRoom;
 }
-
-
 CAIManager::~CAIManager()
 {
 }
 
-void CAIManager::UpdateEnemyBehavior()
+void CAIManager::FindPlayerPath()
+{
+	CheckForAgent();
+
+	m_pcPlayerAgent->Start();
+}
+void CAIManager::CheckForAgent()
+{
+	if (!m_pcPlayerAgent)
+	{
+		TEntityMessage message = TEntityMessage(0);
+		m_pcPlayerAgent = ((CPlayerEntity*)CEventManager::SendEntityMessage(message))->GetComponent<CPathAgent>();
+	}
+
+	CPathSurface* pcSurface = m_pcPlayerAgent->GetSurface();
+	CPathSurface* pcRoomSurface = CLevel::m_pcCurrentRoom->GetComponent<CPathSurface>();
+
+	if (!pcSurface || pcSurface != pcRoomSurface)
+	{
+		m_pcPlayerAgent->SetSurface(pcRoomSurface);
+	}
+}
+
+void CAIManager::Reset()
+{
+	m_pcPlayerAgent = nullptr;
+	m_bCalculateWeights = false;
+	currentRoom = CLevel::m_pcCurrentRoom;
+}
+
+void CAIManager::Update(float fDeltaTime)
+{
+	CheckForAgent();
+	if (m_bCalculateWeights)
+	{
+		m_pcPlayerAgent->GetSurface()->CalculateWeights();
+		m_bCalculateWeights = false;
+	}
+
+	if (!m_pcPlayerAgent->GetSurface()->HasWeights())
+	{
+		m_bCalculateWeights = true;
+		return;
+	}
+
+	for (CPathAgent* agent : m_pcComponentManager->GetPathAgents())
+	{
+		if (agent->IsNavigating())
+			agent->Navigate();
+	}
+
+	if (CInputManager::GetKeyDown('K'))
+	{
+		CMath::TVECTOR2 vMouse;
+		CMath::TVECTOR3 vStart, vEnd, vSegment, tVel, tNormalVelocity, tFloorPosition;
+		CInputManager::GetMousePosNDC(vMouse.x, vMouse.y);
+		CInputManager::GetMouseWorldSpace(vMouse, vStart, vEnd);
+		vSegment = vEnd - vStart;
+
+		if (CPhysicsManager::RaycastMouseToFloor(vStart, CMath::Vector3Normalize(vSegment), OUT tFloorPosition))
+		{
+			CheckForAgent();
+
+			m_pcPlayerAgent->SetTarget(tFloorPosition);
+		}
+	}
+	UpdateEnemyBehavior(fDeltaTime);
+	//UpdateFlockingBehavior(fDeltaTime);
+}
+
+void CAIManager::UpdateEnemyBehavior(float fDeltaTime)
 {
 	m_pcEnemyControllers = m_pcComponentManager->GetEnemyControllers();
 
 	for (IEnemyController* controller : m_pcEnemyControllers)
 	{
 		if (controller->IsActive())
-		{
-			int nType = controller->m_nEnemyType;
-
-			switch (nType)
-			{
-				case eEnemyType::MAGE:
-				{
-					CMageController* pcMageController = dynamic_cast<CMageController*>(controller);
-					if (pcMageController)
-					{
-						pcMageController->Update();
-					}
-					break;
-				}
-
-				case eEnemyType::CHICKEN:
-				{
-					CChickenController* pcChickenController = dynamic_cast<CChickenController*>(controller);
-					if (pcChickenController)
-					{
-						pcChickenController->Update();
-					}
-					break;
-				}
-
-				case eEnemyType::VIKING:
-				{
-					CVikingController* pcVikingController = dynamic_cast<CVikingController*>(controller);
-					if (pcVikingController)
-					{
-						pcVikingController->Update();
-					}
-					break;
-				}
-
-				default:
-				{
-					break;
-				}
-			}
-		}
-
+			controller->Update(fDeltaTime);
 	}
 }
-
 
 void CAIManager::UpdateFlockingBehavior(float fDeltaTime)
 {

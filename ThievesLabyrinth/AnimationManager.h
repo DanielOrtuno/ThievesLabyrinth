@@ -3,7 +3,7 @@
 #include <vector>
 #include <fstream>
 #include <DirectXMath.h>
-#include "EnumTypes.h"
+//#include "EnumTypes.h"
 
 #define MAX_JOINTS 35
 

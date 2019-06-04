@@ -7,12 +7,12 @@
 
 class CTransform;
 
-#define NBITSIZE 51
+#define NBITSIZE 53
 
 class CInputManager : public ISystem
 {
-	static std::bitset<NBITSIZE> m_bKeyPresses;
 	static std::bitset<NBITSIZE> m_bKeysDown;
+	static std::bitset<NBITSIZE> m_bKeys;
 	static std::bitset<NBITSIZE> m_bKeyBools;
 	static int	nMouseXPos, nMouseYPos, nScreenWidth, nScreenHeight, nXDiff, nYDiff;
 	static const CMath::TMATRIX* m_pProjMat;
@@ -84,6 +84,13 @@ public:
 	// -1: Scroll Down
 	// 0: Not Scrolling
 	static int GetScrollDirection();
+
+	// Returns true if any button being tracked is being held
+	static bool GetAnyKey();
+
+	// Returns an unsigned int if any button tracked is being pressed
+	// Returns -1 if none are
+	static int GetAnyKeyDown();
 
 };
 

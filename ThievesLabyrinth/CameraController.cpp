@@ -10,6 +10,8 @@
 #include "Transform.h"
 #include "EnumTypes.h"
 
+CTransform* CCameraController::m_pCameraTransform;
+
 CCameraController::CCameraController(IEntity* pcOwner) : IComponent(pcOwner)
 {
 	m_pPlayerPos = CEventManager::SendEntityMessage(TEntityMessage(0))->GetComponent<CTransform>();
@@ -39,6 +41,11 @@ CCameraController::CCameraController(IEntity* pcOwner) : IComponent(pcOwner)
 	m_bDebug = false;
 	m_fSpeed = 15.0f;
 	m_fSpeedDebug = 100.0f;
+}
+
+CTransform * CCameraController::GetCamera()
+{
+	return m_pCameraTransform;
 }
 
 void CCameraController::Update()
@@ -85,13 +92,13 @@ void CCameraController::Update()
 		if (CInputManager::GetKey(VK_SPACE))
 		{
 			//vMovement.y = 1;
-			m_pCameraTransform->SetMatrix( m_pCameraTransform->GetMatrix() * CMath::MatrixTranslationFromVector(CMath::TVECTOR3{ 0,1,0 } * fDelta * m_fSpeedDebug));
+			m_pCameraTransform->SetMatrix( m_pCameraTransform->GetMatrix() * CMath::MatrixTranslationFromVector(CMath::TVECTOR3{ 0, 1.0f * fDelta,0 } * m_fSpeedDebug));
 		}
 
 		if (CInputManager::GetKey(VK_CONTROL))
 		{
 			//vMovement.y = -1;			
-			m_pCameraTransform->SetMatrix(m_pCameraTransform->GetMatrix() * CMath::MatrixTranslationFromVector(CMath::TVECTOR3{ 0,-1,0 } * fDelta * m_fSpeedDebug));
+			m_pCameraTransform->SetMatrix(m_pCameraTransform->GetMatrix() * CMath::MatrixTranslationFromVector(CMath::TVECTOR3{ 0, -1.0f * fDelta,0 } * m_fSpeedDebug));
 
 		}
 

@@ -2,6 +2,7 @@
 #include "Entity.h"
 
 #include "MageController.h"
+#include "KnightController.h"
 
 #include "Rigidbody.h"
 #include "AnimatorComponent.h"
@@ -9,6 +10,12 @@
 #include "BoxCollider.h"
 #include "CapsuleCollider.h"
 #include "Transform.h"
+#include "PathSurface.h"
+#include "ParticleEffect.h"
+#include "LightComponent.h"
+#include "IndicatorController.h"
+#include "SpikeTrapController.h"
+#include "Entity.h"
 
 #include "EnumTypes.h"
 #include "Stats.h"
@@ -24,7 +31,10 @@ std::vector<CRoomEntity*>		 CEntityManager::m_pcRooms;
 std::vector<CEnvironmentEntity*> CEntityManager::m_pcEnvironmentEntities;
 std::vector<CDoorEntity*>		 CEntityManager::m_pcDoorEntities;
 std::vector<CTrapEntity*>		 CEntityManager::m_pcTrapEntities;
+std::vector<CSpawnEntity*>		 CEntityManager::m_pcSpawnEntities;
+std::vector<CItemEntity*>		 CEntityManager::m_pcItemEntities;
 std::vector<IEntity*>			 CEntityManager::m_pcDeletionQueue;
+std::vector<CParticleEntity*>	 CEntityManager::m_pcParticleEntities;
 
 int								 CEntityManager::m_nIdCount;
 
@@ -131,6 +141,30 @@ IEntity* CEntityManager::CreateEntity(int nType, int nOption)
 			break;
 		}
 
+		case eEntity::SPAWN:
+		{
+			pcResult = new CSpawnEntity(m_nIdCount++);
+			m_pcSpawnEntities.push_back((CSpawnEntity*)pcResult);
+
+			break;
+		}
+
+		case eEntity::ITEM:
+		{
+			pcResult = new CItemEntity(m_nIdCount++);
+			m_pcItemEntities.push_back((CItemEntity*)pcResult);
+
+			break;
+		}
+
+		case eEntity::PARTICLE:
+		{
+			pcResult = new CParticleEntity(m_nIdCount++);
+			m_pcParticleEntities.push_back((CParticleEntity*)pcResult);
+
+			break;
+		}
+
 		default:
 		{
 			pcResult = nullptr;
@@ -172,12 +206,16 @@ int CEntityManager::RemoveComponentFromEntity(IEntity * pcEntity, int nComponent
 
 void CEntityManager::AddEntityToDeletionQueue(IEntity * pcEntity)
 {
-	m_pcDeletionQueue.push_back(pcEntity);
+	
+	auto entityFound = std::find(m_pcDeletionQueue.begin(), m_pcDeletionQueue.end(), pcEntity);
+	if (entityFound == std::end(m_pcDeletionQueue))
+	{
+		m_pcDeletionQueue.push_back(pcEntity);
+	}
 }
 
 int CEntityManager::DeleteEntity(IEntity* pcEntity)
 {
-
 	for(IComponent* component : pcEntity->m_pcComponents)
 	{
 		m_pcComponentManager->DeleteComponent(component->m_nComponentType, component);
@@ -196,7 +234,8 @@ int CEntityManager::DeleteEntity(IEntity* pcEntity)
 
 		case eEntity::ENEMY:
 		{
-			for(unsigned int i = 0; i < m_pcEnemies.size(); i++)
+			int EnemiesSize = (int)m_pcEnemies.size();
+			for(int i = 0; i < EnemiesSize; i++)
 			{
 				if(m_pcEnemies[i] == pcEntity)
 				{
@@ -211,7 +250,8 @@ int CEntityManager::DeleteEntity(IEntity* pcEntity)
 
 		case eEntity::PROJECTILE:
 		{
-			for(unsigned int i = 0; i < m_pcProjectiles.size(); i++)
+			int ProjectilesSize = (int)m_pcProjectiles.size();
+			for(int i = 0; i < ProjectilesSize; i++)
 			{
 				if(m_pcProjectiles[i] == pcEntity)
 				{
@@ -235,7 +275,8 @@ int CEntityManager::DeleteEntity(IEntity* pcEntity)
 
 		case eEntity::ROOM:
 		{
-			for (unsigned int i = 0; i < m_pcRooms.size(); i++)
+			int RoomSize = (int)m_pcRooms.size();
+			for (int i = 0; i < RoomSize; i++)
 			{
 				if (m_pcRooms[i] == pcEntity)
 				{
@@ -250,7 +291,8 @@ int CEntityManager::DeleteEntity(IEntity* pcEntity)
 
 		case eEntity::ENVIRONMENT:
 		{
-			for (unsigned int i = 0; i < m_pcEnvironmentEntities.size(); i++)
+			int EnvironmentSize = (int)m_pcEnvironmentEntities.size();
+			for (int i = 0; i < EnvironmentSize; i++)
 			{
 				if (m_pcEnvironmentEntities[i] == pcEntity)
 				{
@@ -265,7 +307,8 @@ int CEntityManager::DeleteEntity(IEntity* pcEntity)
 
 		case eEntity::DOOR:
 		{
-			for (unsigned int i = 0; i < m_pcDoorEntities.size(); i++)
+			int DoorSize = (int)m_pcDoorEntities.size();
+			for (int i = 0; i < DoorSize; i++)
 			{
 				if (m_pcDoorEntities[i] == pcEntity)
 				{
@@ -281,7 +324,8 @@ int CEntityManager::DeleteEntity(IEntity* pcEntity)
 
 		case eEntity::TRAP:
 		{
-			for (unsigned int i = 0; i < m_pcTrapEntities.size(); i++)
+			int TrapSize = (int)m_pcTrapEntities.size();
+			for (int i = 0; i < TrapSize; i++)
 			{
 				if (m_pcTrapEntities[i] == pcEntity)
 				{
@@ -291,6 +335,56 @@ int CEntityManager::DeleteEntity(IEntity* pcEntity)
 			}
 
 			delete (CTrapEntity*)pcEntity;
+			break;
+		}
+
+		case eEntity::SPAWN:
+		{
+			int SpawnSize = (int)m_pcSpawnEntities.size();
+			for (int i = 0; i < SpawnSize; i++)
+			{
+				if (m_pcSpawnEntities[i] == pcEntity)
+				{
+					m_pcSpawnEntities.erase(m_pcSpawnEntities.begin() + i);
+					break;
+				}
+			}
+
+			delete (CSpawnEntity*)pcEntity;
+			break;
+		}
+
+		case eEntity::ITEM:
+		{
+			int ItemsSize = (int)m_pcItemEntities.size();
+			for (int i = 0; i < ItemsSize; i++)
+			{
+				if (m_pcItemEntities[i] == pcEntity)
+				{
+					m_pcItemEntities.erase(m_pcItemEntities.begin() + i);
+					break;
+				}
+			}
+
+			pcEntity->m_pcRoom->RemoveItem((CItemEntity*)pcEntity);
+
+			delete (CItemEntity*)pcEntity;
+			break;
+		}
+
+		case eEntity::PARTICLE:
+		{
+			int ParticleSize = (int)m_pcParticleEntities.size();
+			for (int i = 0; i < ParticleSize; i++)
+			{
+				if (m_pcParticleEntities[i] == pcEntity)
+				{
+					m_pcParticleEntities.erase(m_pcParticleEntities.begin() + i);
+					break;
+				}
+			}
+
+			delete (CParticleEntity*)pcEntity;
 			break;
 		}
 
@@ -353,6 +447,24 @@ int CEntityManager::GetEntityCount(int nType)
 			break;
 		}
 
+		case eEntity::SPAWN:
+		{
+			return (int)m_pcSpawnEntities.size();
+			break;
+		}
+
+		case eEntity::ITEM:
+		{
+			return (int)m_pcItemEntities.size();
+			break;
+		}
+
+		case eEntity::PARTICLE:
+		{
+			return (int)m_pcParticleEntities.size();
+			break;
+		}
+
 		default:
 		{
 			return -1;
@@ -374,7 +486,8 @@ IEntity* CEntityManager::GetEntity(int nID)
 		return m_pcCamera;
 	}
 
-	for(int i = 0; i < m_pcEnemies.size(); i++)
+	int EnemiesSize = (int)m_pcEnemies.size();
+	for(int i = 0; i < EnemiesSize; i++)
 	{
 		if(m_pcEnemies[i]->m_nEntityId == nID)
 		{
@@ -382,7 +495,8 @@ IEntity* CEntityManager::GetEntity(int nID)
 		}
 	}
 
-	for(int i = 0; i < m_pcProjectiles.size(); i++)
+	int ProjectileSize = (int)m_pcProjectiles.size();
+	for(int i = 0; i < ProjectileSize; i++)
 	{
 		if(m_pcProjectiles[i]->m_nEntityId == nID)
 		{
@@ -391,7 +505,8 @@ IEntity* CEntityManager::GetEntity(int nID)
 
 	}
 
-	for(int i = 0; i < m_pcRooms.size(); i++)
+	int RoomsSize = (int)m_pcRooms.size();
+	for(int i = 0; i < RoomsSize; i++)
 	{
 		if(m_pcRooms[i]->m_nEntityId == nID)
 		{
@@ -399,7 +514,8 @@ IEntity* CEntityManager::GetEntity(int nID)
 		}
 	}
 
-	for (int i = 0; i < m_pcDoorEntities.size(); i++)
+	int DoorSize = (int)m_pcDoorEntities.size();
+	for (int i = 0; i < DoorSize; i++)
 	{
 		if (m_pcDoorEntities[i]->m_nEntityId == nID)
 		{
@@ -407,7 +523,8 @@ IEntity* CEntityManager::GetEntity(int nID)
 		}
 	}
 
-	for (int i = 0; i < m_pcEnvironmentEntities.size(); i++)
+	int EnvironmentSize = (int)m_pcEnvironmentEntities.size();
+	for (int i = 0; i < EnvironmentSize; i++)
 	{
 		if (m_pcEnvironmentEntities[i]->m_nEntityId == nID)
 		{
@@ -415,13 +532,42 @@ IEntity* CEntityManager::GetEntity(int nID)
 		}
 	}
 
-	for (int i = 0; i < m_pcTrapEntities.size(); i++)
+	int TrapSize = (int)m_pcTrapEntities.size();
+	for (int i = 0; i < TrapSize; i++)
 	{
 		if (m_pcTrapEntities[i]->m_nEntityId == nID)
 		{
 			return m_pcTrapEntities[i];
 		}
 	}
+
+	int SpawnSize = (int)m_pcSpawnEntities.size();
+	for (int i = 0; i < SpawnSize; i++)
+	{
+		if (m_pcSpawnEntities[i]->m_nEntityId == nID)
+		{
+			return m_pcSpawnEntities[i];
+		}
+	}
+
+	int ItemsSize = (int)m_pcItemEntities.size();
+	for (int i = 0; i < ItemsSize; i++)
+	{
+		if (m_pcItemEntities[i]->m_nEntityId == nID)
+		{
+			return m_pcItemEntities[i];
+		}
+	}
+
+	int ParticleSize = (int)m_pcParticleEntities.size();
+	for (int i = 0; i < ParticleSize; i++)
+	{
+		if (m_pcParticleEntities[i]->m_nEntityId == nID)
+		{
+			return m_pcParticleEntities[i];
+		}
+	}
+
 
 	return nullptr;
 }
@@ -438,39 +584,62 @@ void CEntityManager::DeleteAllEntities()
 		DeleteEntity(m_pcCamera);
 	}
 
-	for (int i = (int)m_pcEnemies.size() - 1; i >= 0; i--)
+	int EnemiesSize = (int)m_pcEnemies.size() - 1;
+	for (int i = EnemiesSize; i >= 0; i--)
 	{
 		DeleteEntity(m_pcEnemies[i]);
 	}
 
-	for (int i = (int)m_pcProjectiles.size() - 1; i >= 0; i--)
+	int ProjectilesSize = (int)m_pcProjectiles.size() - 1;
+	for (int i = ProjectilesSize; i >= 0; i--)
 	{
 		DeleteEntity(m_pcProjectiles[i]);
 	}
 
-
-	for (int i = (int)m_pcEnvironmentEntities.size() - 1; i >= 0; i--)
+	int EnvironmentSize = (int)m_pcEnvironmentEntities.size() - 1;
+	for (int i = EnvironmentSize; i >= 0; i--)
 	{
 		DeleteEntity(m_pcEnvironmentEntities[i]);
 	}
 
-	for (int i = (int)m_pcRooms.size() - 1; i >= 0; i--)
+	int ItemSize = (int)m_pcItemEntities.size() - 1;
+	for (int i = ItemSize; i >= 0; i--)
+	{
+		DeleteEntity(m_pcItemEntities[i]);
+	}
+
+	int RoomSize = (int)m_pcRooms.size() - 1;
+	for (int i = RoomSize; i >= 0; i--)
 	{
 		DeleteEntity(m_pcRooms[i]);
 	}
 
-	for (int i = (int)m_pcDoorEntities.size() - 1; i >= 0; i--)
+	int DoorSize = (int)m_pcDoorEntities.size() - 1;
+	for (int i = DoorSize; i >= 0; i--)
 	{
 		DeleteEntity(m_pcDoorEntities[i]);
 	}
 
-	for (int i = (int)m_pcTrapEntities.size() - 1; i >= 0; i--)
+	int TrapSize = (int)m_pcTrapEntities.size() - 1;
+	for (int i = TrapSize; i >= 0; i--)
 	{
 		DeleteEntity(m_pcTrapEntities[i]);
 	}
 
+	int SpawnSize = (int)m_pcSpawnEntities.size() - 1;
+	for (int i = SpawnSize; i >= 0; i--)
+	{
+		DeleteEntity(m_pcSpawnEntities[i]);
+	}
+
+	int ParticleSize = (int)m_pcParticleEntities.size() - 1;
+	for (int i = ParticleSize; i >= 0; i--)
+	{
+		DeleteEntity(m_pcParticleEntities[i]);
+	}
+
 	m_nIdCount = 1;
-	
+	m_pcDeletionQueue.clear();
 }
 
 IEntity* CEntityManager::CloneEntity(IEntity * pcEntityToCopy)
@@ -505,6 +674,7 @@ IEntity* CEntityManager::CloneEntity(IEntity * pcEntityToCopy)
 
 				break;
 			}
+
 			case eComponent::RIGIDBODY:
 			{
 				CRigidbody* temp = (CRigidbody*)pcNewComponent;
@@ -512,6 +682,7 @@ IEntity* CEntityManager::CloneEntity(IEntity * pcEntityToCopy)
 
 				break;
 			}
+
 			case eComponent::MESH_RENDERER:
 			{
 				CMeshRenderer* temp = (CMeshRenderer*)pcNewComponent;
@@ -548,12 +719,22 @@ IEntity* CEntityManager::CloneEntity(IEntity * pcEntityToCopy)
 			{
 				CChickenController* temp = (CChickenController*)pcNewComponent;
 				*temp = *(CChickenController*)pcComponent;
+
+				break;
 			}
 
 			case eComponent::VIKING_CONTROLLER:
 			{
 				CVikingController* temp = (CVikingController*)pcNewComponent;
 				*temp = *(CVikingController*)pcComponent;
+
+				break;
+			}
+
+			case eComponent::KNIGHT_CONTROLLER:
+			{
+				CKnightController* temp = (CKnightController*)pcNewComponent;
+				*temp = *(CKnightController*)pcComponent;
 
 				break;
 			}
@@ -573,7 +754,49 @@ IEntity* CEntityManager::CloneEntity(IEntity * pcEntityToCopy)
 
 				break;
 			}
+
+			case eComponent::PATH_SURFACE:
+			{
+				CPathSurface* temp = (CPathSurface*)pcNewComponent;
+				*temp = *(CPathSurface*)pcComponent;
+
+				break;
+			}
+
+			
+			case eComponent::PARTICLE_EMITTER:
+			{
+				CParticleEmitter* temp = (CParticleEmitter*)pcNewComponent;
+				*temp = *(CParticleEmitter*)pcComponent;
+				temp->Disable();
+				break;
+			}
+
+			case eComponent::CLICK_INDICATOR:
+			{
+				CIndicatorController* temp = (CIndicatorController*)pcNewComponent;
+				*temp = *(CIndicatorController*)pcComponent;
+
+				break;
+			}
+
+			case eComponent::SPIKE_TRAP_COMPONENT:
+			{
+				CSpikeTrapController* temp = (CSpikeTrapController*)pcNewComponent;
+				*temp = *(CSpikeTrapController*)pcComponent;
+
+				break;
+			}
 		}
+	}
+
+	if (pNewEntity->m_nEntityType == eEntity::PARTICLE)
+	{
+		CParticleEntity* pcNewParticle = (CParticleEntity*)pNewEntity;
+		CParticleEntity* pcParticleToCopy = (CParticleEntity*)pcEntityToCopy;
+		pcNewParticle->m_fLifetime = pcParticleToCopy->m_fLifetime;
+
+		return pcNewParticle;
 	}
 
 	if (pNewEntity->m_nEntityType == eEntity::ROOM)
@@ -603,7 +826,48 @@ IEntity* CEntityManager::CloneEntity(IEntity * pcEntityToCopy)
 			pcNewRoom->m_pcDoors.push_back((CDoorEntity*)CloneEntity(pcEnvironmentEntity));
 		}
 
-		
+		for(CSpawnEntity* pcEnvironmentEntity : pcRoomToCopy->m_pcSpawns)
+		{
+			pcNewRoom->m_pcSpawns.push_back((CSpawnEntity*)CloneEntity(pcEnvironmentEntity));
+		}
+
+		for (CEnvironmentEntity* pcEnvironmentEntity : pcRoomToCopy->m_pcClutter)
+		{
+			pcNewRoom->m_pcClutter.push_back((CEnvironmentEntity*)CloneEntity(pcEnvironmentEntity));
+		}
+
+		for (CTrapEntity* pcTrapEntity : pcRoomToCopy->m_pcTraps)
+		{
+			pcNewRoom->m_pcTraps.push_back((CTrapEntity*)CloneEntity(pcTrapEntity));
+		}
+
+		for (CEnvironmentEntity* pcEnvironmentEntity : pcRoomToCopy->m_pcLights)
+		{
+			pcNewRoom->m_pcLights.push_back((CEnvironmentEntity*)CloneEntity(pcEnvironmentEntity));
+
+			for (int i = 0; i < pcNewRoom->m_pcLights.size(); i++)
+			{
+				if (pcEnvironmentEntity->top == true)
+				{
+					pcNewRoom->m_pcLights[i]->top = true;
+				}
+
+				if (pcEnvironmentEntity->bottom == true)
+				{
+					pcNewRoom->m_pcLights[i]->bottom = true;
+				}
+
+				if (pcEnvironmentEntity->left == true)
+				{
+					pcNewRoom->m_pcLights[i]->left = true;
+				}
+
+				if (pcEnvironmentEntity->right == true)
+				{
+					pcNewRoom->m_pcLights[i]->right = true;
+				}
+			}	
+		}
 
 		if (pcRoomToCopy->IsActive() == true)
 		{
@@ -617,6 +881,11 @@ IEntity* CEntityManager::CloneEntity(IEntity * pcEntityToCopy)
 		return pcNewRoom;
 	}
 	
+	if (pNewEntity->m_nEntityType == eEntity::PROJECTILE)
+	{
+		((CProjectileEntity*)(pNewEntity))->bIsTriggerStay = ((CProjectileEntity*)(pcEntityToCopy))->bIsTriggerStay;
+	}
+
 	pNewEntity->m_pcRoom = pcEntityToCopy->m_pcRoom;
 
 	if (pcEntityToCopy->IsActive() == true)
@@ -708,18 +977,31 @@ void CEntityManager::NotifyCollisionMessage(int nCollider, int nCollidingWith, i
 		}
 	}
 
-
 void CEntityManager::ProcessDeletionQueue()
 {
-	for(IEntity* pEntity : m_pcDeletionQueue)
+	for (size_t i = 0; i < m_pcDeletionQueue.size(); i++)
 	{
-		if(pEntity)
+		if (m_pcDeletionQueue[i])
 		{
-			DeleteEntity(pEntity);
+			DeleteEntity(m_pcDeletionQueue[i]);
+			//m_pcDeletionQueue.erase(m_pcDeletionQueue.begin());
 		}
 	}
-
+	/*for (IEntity* pcEntity : m_pcDeletionQueue)
+	{
+		if (pcEntity)
+		{
+			DeleteEntity(pcEntity);
+			m_pcDeletionQueue.erase(m_pcDeletionQueue.begin());
+		}
+	}
+*/
 	m_pcDeletionQueue.clear();
+}
+
+CCameraEntity * CEntityManager::GetCameraEntity()
+{
+	return m_pcCamera;
 }
 
 CEntityManager::~CEntityManager()

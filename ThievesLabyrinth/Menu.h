@@ -12,6 +12,8 @@ class CMenu
 	size_t				m_TitleLength;
 	float m_fLeft, m_fRight, m_fTop, m_fBottom;
 	std::vector<D2D1_RECT_F> m_BoundaryBoxSet;
+	std::vector<D2D1_RECT_U> m_UnpressedBoxes;
+	std::vector<D2D1_RECT_U> m_PressedBoxes;
 	bool m_isOptions;
 public:
 	std::vector<CButton*> m_pcButtons;
@@ -47,7 +49,7 @@ public:
 	// top: ratio between 0-1 to define the top side of the text box
 	// bottom: ratio between 0-1 to define the bottom side of the text box
 	// Note: ratios use the passed in width and height respectively
-	void AddSlider(int menu, int nType, int width, int height, float wWidth, float wHeight, float left, float right, float top, float bottom);
+	void AddSlider(int menu, int nVary, int nType, int width, int height, float wWidth, float wHeight, float left, float right, float top, float bottom);
 
 	// title_text: Text to render to the screen
 	// width: Swapchain Width
@@ -100,6 +102,11 @@ public:
 
 	// Informs if the menu is an options menu
 	bool IsOptionsMenu();
+
+	// Resizes Description Boxes
+	// fWidth: Width of the swap chain
+	// fHeight: Height of the swap chain
+	void ResizeBoxes(float fWidth, float fHeight);
 
 	~CMenu();
 };

@@ -6,8 +6,12 @@
 #include "MageController.h"
 #include "ChickenController.h"
 #include "SpikeTrapController.h"
+#include "PathSurface.h"
+#include "PathAgent.h"
 #include "VikingController.h"
-
+#include "ArcherController.h"
+#include "KnightController.h"
+#include "IndicatorController.h"
 #include "Rigidbody.h"
 #include "AnimatorComponent.h"
 #include "MeshRenderer.h"
@@ -15,6 +19,8 @@
 #include "BoxCollider.h"
 #include "CapsuleCollider.h"
 #include "EnumTypes.h"
+#include "ParticleEffect.h"
+#include "LightComponent.h"
 
 #include "Stats.h"
 #include "Entity.h"
@@ -69,7 +75,12 @@ IComponent* CComponentManager::CreateComponent(IEntity* pcOwner, int nType)
 		case eComponent::MESH_RENDERER:
 		{
 			CMeshRenderer* newMesh = new CMeshRenderer(pcOwner);
-			m_pcMeshes.push_back(newMesh);
+
+			if(pcOwner->m_nEntityType == eEntity::PARTICLE)
+				m_pcParticleMeshes.push_back(newMesh);
+			else
+				m_pcMeshes.push_back(newMesh);
+
 			newComponent = newMesh;
 
 			break;
@@ -133,6 +144,22 @@ IComponent* CComponentManager::CreateComponent(IEntity* pcOwner, int nType)
 			break;
 		}
 
+		case eComponent::ARCHER_CONTROLLER:
+		{
+			CArcherController* newArcherController = new CArcherController(pcOwner);
+			newComponent = newArcherController;
+			m_pcEnemyControllers.push_back(dynamic_cast<IEnemyController*>(newArcherController));
+			break;
+		}
+
+		case eComponent::KNIGHT_CONTROLLER:
+		{
+			CKnightController* newKnightController = new CKnightController(pcOwner);
+			newComponent = newKnightController;
+			m_pcEnemyControllers.push_back(dynamic_cast<IEnemyController*>(newKnightController));
+			break;
+		}
+
 		case eComponent::PROJECTILE_COMPONENT:
 		{
 			CProjectileComponent* newProjectileComponent = new CProjectileComponent(pcOwner);
@@ -170,6 +197,41 @@ IComponent* CComponentManager::CreateComponent(IEntity* pcOwner, int nType)
 			m_pcSpikeTrapControllers.push_back(newSpikeController);
 			newComponent = newSpikeController;
 
+			break;
+		}
+
+		case eComponent::PATH_SURFACE:
+		{
+			CPathSurface* newPathSurface = new CPathSurface(pcOwner);
+			m_pcPathSurfaces.push_back(newPathSurface);
+			newComponent = newPathSurface;
+
+			break;
+		}
+
+		case eComponent::PATH_AGENT:
+		{
+			CPathAgent* newPathAgent = new CPathAgent(pcOwner);
+			m_pcPathAgents.push_back(newPathAgent);
+			newComponent = newPathAgent;
+
+			break;
+		}
+
+		case eComponent::PARTICLE_EMITTER:
+		{
+			CParticleEmitter* newParticleEffect = new CParticleEmitter(pcOwner);
+			m_pcParticleEmitter.push_back(newParticleEffect);
+			newComponent = newParticleEffect;
+
+			break;
+		}
+
+		case eComponent::CLICK_INDICATOR:
+		{
+			CIndicatorController* newIndicatorController = new CIndicatorController(pcOwner);
+			m_pcIndicatorControllers.push_back(newIndicatorController);
+			newComponent = newIndicatorController;
 			break;
 		}
 
@@ -251,12 +313,26 @@ int CComponentManager::DeleteComponent(int nType, IComponent * pcComponent)
 		}
 		case eComponent::MESH_RENDERER:
 		{
-			for(unsigned int i = 0; i < m_pcMeshes.size(); i++)
+			if(pcComponent->m_pcOwner->m_nEntityType == eEntity::PARTICLE)
 			{
-				if(m_pcMeshes[i] == pcComponent)
+				for(unsigned int i = 0; i < m_pcParticleMeshes.size(); i++)
 				{
-					m_pcMeshes.erase(m_pcMeshes.begin() + i);
-					break;
+					if(m_pcParticleMeshes[i] == pcComponent)
+					{
+						m_pcParticleMeshes.erase(m_pcParticleMeshes.begin() + i);
+						break;
+					}
+				}
+			}
+			else
+			{
+				for(unsigned int i = 0; i < m_pcMeshes.size(); i++)
+				{
+					if(m_pcMeshes[i] == pcComponent)
+					{
+						m_pcMeshes.erase(m_pcMeshes.begin() + i);
+						break;
+					}
 				}
 			}
 
@@ -362,7 +438,39 @@ int CComponentManager::DeleteComponent(int nType, IComponent * pcComponent)
 				}
 			}
 
-			delete (CChickenController*)pcComponent;
+			delete (CVikingController*)pcComponent;
+
+			break;
+		}
+
+		case eComponent::ARCHER_CONTROLLER:
+		{
+			for (unsigned int i = 0; i < m_pcEnemyControllers.size(); i++)
+			{
+				if (m_pcEnemyControllers[i] == pcComponent)
+				{
+					m_pcEnemyControllers.erase(m_pcEnemyControllers.begin() + i);
+					break;
+				}
+			}
+
+			delete (CArcherController*)pcComponent;
+
+			break;
+		}
+
+		case eComponent::KNIGHT_CONTROLLER:
+		{
+			for (unsigned int i = 0; i < m_pcEnemyControllers.size(); i++)
+			{
+				if (m_pcEnemyControllers[i] == pcComponent)
+				{
+					m_pcEnemyControllers.erase(m_pcEnemyControllers.begin() + i);
+					break;
+				}
+			}
+
+			delete (CKnightController*)pcComponent;
 
 			break;
 		}
@@ -434,6 +542,73 @@ int CComponentManager::DeleteComponent(int nType, IComponent * pcComponent)
 
 			break;
 		}
+
+		case eComponent::PATH_SURFACE:
+		{
+			for (unsigned int i = 0; i < m_pcPathSurfaces.size(); i++)
+			{
+				if (m_pcPathSurfaces[i] == pcComponent)
+				{
+					m_pcPathSurfaces.erase(m_pcPathSurfaces.begin() + i);
+					break;
+				}
+			}
+
+			delete (CPathSurface*)pcComponent;
+
+			break;
+		}
+
+		case eComponent::PATH_AGENT:
+		{
+			for (unsigned int i = 0; i < m_pcPathAgents.size(); i++)
+			{
+				if (m_pcPathAgents[i] == pcComponent)
+				{
+					m_pcPathAgents.erase(m_pcPathAgents.begin() + i);
+					break;
+				}
+			}
+
+			delete (CPathAgent*)pcComponent;
+
+			break;
+		}
+
+		case eComponent::PARTICLE_EMITTER:
+		{
+			for (unsigned int i = 0; i < m_pcParticleEmitter.size(); i++)
+			{
+				if (m_pcParticleEmitter[i] == pcComponent)
+				{
+					m_pcParticleEmitter[i]->Disable();
+
+					m_pcParticleEmitter.erase(m_pcParticleEmitter.begin() + i);
+					break;
+				}
+			}
+
+			delete (CParticleEmitter*)pcComponent;
+
+			break;
+		}
+
+		case eComponent::CLICK_INDICATOR:
+		{
+			for(unsigned int i = 0; i < m_pcIndicatorControllers.size(); i++)
+			{
+				if(m_pcIndicatorControllers[i] == pcComponent)
+				{
+					m_pcIndicatorControllers.erase(m_pcIndicatorControllers.begin() + i);
+					break;
+				}
+			}
+
+			delete (CIndicatorController*)pcComponent;
+
+			break;
+		}
+
 
 		default:
 		{
@@ -527,6 +702,12 @@ int CComponentManager::GetComponentCountOfType(int nType)
 			break;
 		}
 
+		case eComponent::PARTICLE_EMITTER:
+		{
+			return (int)m_pcParticleEmitter.size();
+			break;
+		}
+
 		default:
 		{
 			return -1;
@@ -535,13 +716,13 @@ int CComponentManager::GetComponentCountOfType(int nType)
 	}
 }
 
-void CComponentManager::UpdateControllers()
+void CComponentManager::UpdateControllers(float fDeltaTime)
 {
 	if(m_pcPlayerController)
 	{
 		if(m_pcPlayerController->IsActive())
 		{
-			m_pcPlayerController->Update();
+			m_pcPlayerController->Update(fDeltaTime);
 		}
 	}
 
@@ -557,7 +738,7 @@ void CComponentManager::UpdateControllers()
 	{
 		if(pcProjectile->IsActive())
 		{
-			pcProjectile->Update();
+			pcProjectile->Update(fDeltaTime);
 		}
 	}
 
@@ -565,8 +746,29 @@ void CComponentManager::UpdateControllers()
 	{
 		if (pcSpikes->IsActive())
 		{
-			pcSpikes->Update();
+			pcSpikes->Update(fDeltaTime);
 		}
+	}
+
+	for(CIndicatorController* pcIndicator : m_pcIndicatorControllers)
+	{
+		if(pcIndicator->IsActive())
+		{
+			pcIndicator->Update(fDeltaTime);
+		}
+	}
+
+	for(CParticleEmitter* pcEmitter : m_pcParticleEmitter)
+	{
+		if(pcEmitter->IsActive() && pcEmitter->IsRunning())
+		{
+			pcEmitter->Update(fDeltaTime);
+		}
+		else if(pcEmitter->IsRunning())
+		{
+			pcEmitter->Disable();
+		}
+
 	}
 
 	if(CInputManager::GetKeyDown('C'))
@@ -622,9 +824,20 @@ std::vector<CMeshRenderer*> CComponentManager::GetMeshes()
 	return m_pcMeshes;
 }
 
+
 std::vector<IEnemyController*> CComponentManager::GetEnemyControllers()
 {
 	return m_pcEnemyControllers;
+}
+
+std::vector<CParticleEmitter*>* CComponentManager::GetParticleEmitters()
+{
+	return &m_pcParticleEmitter;
+}
+
+std::vector<CPathAgent*> CComponentManager::GetPathAgents()
+{
+	return m_pcPathAgents;
 }
 
 std::vector<CCameraController*> CComponentManager::GetCameraController()
@@ -659,6 +872,11 @@ CComponentManager::~CComponentManager()
 		DeleteComponent(pcComponent->m_nComponentType, pcComponent);
 	}
 
+	for(CMeshRenderer* pcComponent : m_pcParticleMeshes)
+	{
+		DeleteComponent(pcComponent->m_nComponentType, pcComponent);
+	}
+
 	for(CCameraController* pcComponent : m_pcCameras)
 	{
 		DeleteComponent(pcComponent->m_nComponentType, pcComponent);
@@ -685,6 +903,21 @@ CComponentManager::~CComponentManager()
 	}
 
 	for (CStats* pcComponent : m_pcStats)
+	{
+		DeleteComponent(pcComponent->m_nComponentType, pcComponent);
+	}
+
+	for (CPathSurface* pcComponent : m_pcPathSurfaces)
+	{
+		DeleteComponent(pcComponent->m_nComponentType, pcComponent);
+	}
+
+	for (CPathAgent* pcComponent : m_pcPathAgents)
+	{
+		DeleteComponent(pcComponent->m_nComponentType, pcComponent);
+	}
+
+	for (CParticleEmitter* pcComponent : m_pcParticleEmitter)
 	{
 		DeleteComponent(pcComponent->m_nComponentType, pcComponent);
 	}

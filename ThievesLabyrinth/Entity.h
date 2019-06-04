@@ -1,10 +1,11 @@
 #pragma once
 #include "EnumTypes.h"
-#include "Math.h"
 
 #include "MageController.h"
 #include "ChickenController.h"
 #include "VikingController.h"
+#include "ArcherController.h"
+#include "KnightController.h"
 
 #include <vector>
 
@@ -26,6 +27,13 @@ class CTransform;
 class CLightComponent;
 class CSpikeTrapController;
 class IEnemyController;
+class CSpawnEntity;
+class CPathSurface;
+class CPathAgent;
+class CItemEntity;
+class CParticleEmitter;
+class CIndicatorController;
+class CTrapEntity;
 
 class IEntity
 {
@@ -58,7 +66,7 @@ public:
 					break;
 				}
 
-			case eComponent::BOX_COLLIDER:
+				case eComponent::BOX_COLLIDER:
 				{
 				if (std::is_same<T, CBoxCollider>::value)
 					{
@@ -155,8 +163,6 @@ public:
 					}
 
 					break;
-
-					break;
 				}
 
 				case eComponent::VIKING_CONTROLLER:
@@ -167,6 +173,34 @@ public:
 					}
 
 					else if (std::is_base_of<T, CVikingController>::value)
+					{
+						return (T*)pnComponent;
+					}
+
+					break;
+				}
+
+				case eComponent::ARCHER_CONTROLLER:
+				{
+					if (std::is_same<T, CArcherController>::value)
+					{
+						return (T*)pnComponent;
+					}
+					else if (std::is_base_of<T, CArcherController>::value)
+					{
+						return (T*)pnComponent;
+					}
+					break;
+				}
+
+				case eComponent::KNIGHT_CONTROLLER:
+				{
+					if (std::is_same<T, CKnightController>::value)
+					{
+						return (T*)pnComponent;
+					}
+
+					else if (std::is_base_of<T, CKnightController>::value)
 					{
 						return (T*)pnComponent;
 					}
@@ -223,6 +257,46 @@ public:
 
 					break;
 				}
+
+				case eComponent::PATH_SURFACE:
+				{
+					if (std::is_same<T, CPathSurface>::value)
+					{
+						return (T*)pnComponent;
+			}
+
+					break;
+		}
+
+				case eComponent::PATH_AGENT:
+				{
+					if (std::is_same<T, CPathAgent>::value)
+					{
+						return (T*)pnComponent;
+					}
+
+					break;
+				}
+
+				case eComponent::PARTICLE_EMITTER:
+				{
+					if (std::is_same<T, CParticleEmitter>::value)
+					{
+						return (T*)pnComponent;
+					}
+
+					break;
+				}
+
+				case eComponent::CLICK_INDICATOR:
+				{
+					if(std::is_same<T, CIndicatorController>::value)
+					{
+						return (T*)pnComponent;
+					}
+
+					break;
+				}
 			}
 		}
 
@@ -256,7 +330,11 @@ public:
 
 	void OnTriggerExit(IEntity* pcCollidingEntity);
 
+	void OnTriggerStay(IEntity* pcCollidingEntity);
+
 	~CPlayerEntity();
+
+	void AddPlayerLight(CLightComponent* cLight);
 };
 
 class CEnemyEntity : public IEntity
@@ -280,6 +358,8 @@ public:
 class CProjectileEntity : public IEntity
 {
 public:
+	bool bIsTriggerStay;
+
 	CProjectileEntity(int nId = -1);
 
 	void OnTriggerEnter(IEntity* pcCollidingEntity);
@@ -302,6 +382,11 @@ class CEnvironmentEntity : public IEntity
 public:
 	CEnvironmentEntity(int nID = -1);
 
+	bool top = false;
+	bool bottom = false;
+	bool left = false;
+	bool right = false;
+
 	~CEnvironmentEntity();
 };
 
@@ -316,16 +401,22 @@ public:
 class CRoomEntity : public IEntity
 {
 	std::vector<CLightComponent*>	m_pLights;
+	std::vector<CItemEntity*> m_pcItems;
 	
-
 public:
-	int m_nEnemyCount;
-	std::vector<CEnemyEntity*>		 m_pcEnemies;
-	std::vector<CEnvironmentEntity*> m_pcWalls;
-	std::vector<CDoorEntity*> m_pcDoors;
-	std::vector<CEnvironmentEntity*> m_pcPillars;
 
-	std::vector<CRoomEntity*> m_pcNeighbors;
+	int									m_nEnemyCount;
+	std::vector<CEnemyEntity*>			m_pcEnemies;
+	std::vector<CEnvironmentEntity*>	m_pcWalls;
+	std::vector<CDoorEntity*>			m_pcDoors;
+	std::vector<CEnvironmentEntity*>	m_pcPillars;
+	std::vector<CEnvironmentEntity*>	m_pcLights;
+	std::vector<CSpawnEntity*>			m_pcSpawns;
+	std::vector<CEnvironmentEntity*>	m_pcClutter;
+
+	std::vector<CTrapEntity*>			m_pcTraps;
+
+	std::vector<CRoomEntity*>			m_pcNeighbors;
 
 	bool Top;
 	bool Bottom;
@@ -334,6 +425,7 @@ public:
 
 	bool Entities;
 	bool Doors;
+	bool Random;
 	bool Visited;
 
 	CRoomEntity(int nId = -1);
@@ -354,9 +446,13 @@ public:
 
 	void RemoveLight(CLightComponent* pLight);
 
-	
+	void AddItem(CItemEntity* pItem);
+
+	void RemoveItem(CItemEntity* pItem);
 
 	std::vector<CLightComponent*>	GetLights();
+
+	std::vector<CItemEntity*>		GetItems();
 
 	~CRoomEntity();
 
@@ -368,4 +464,34 @@ public:
 	CTrapEntity(int nId);
 
 	~CTrapEntity();
+};
+
+class CSpawnEntity : public IEntity
+{
+public:
+	bool Taken = false;
+
+	CSpawnEntity(int nId);
+	~CSpawnEntity();
+};
+
+class CItemEntity : public IEntity
+{
+public:
+	int m_nItemType, m_nItemClass;
+	bool m_bAcquired;
+	CItemEntity(int nId);
+	~CItemEntity();
+
+	void CreateRandomItem(IEntity* pEntity);
+	void CreateItem(int nItemClass, int nItemType, IEntity* pEntity);
+};
+
+class CParticleEntity : public IEntity
+{
+public:
+	float m_fLifetime;
+	float m_fRotationSpeed;
+
+	CParticleEntity(int nId);
 };

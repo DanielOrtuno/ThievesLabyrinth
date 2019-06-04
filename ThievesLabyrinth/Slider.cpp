@@ -4,10 +4,11 @@
 #include "AudioManager.h"
 #include "InputManager.h"
 #include "EnumTypes.h"
+#include "RenderManager.h"
 
-bool CSlider::m_bSMaC, CSlider::m_bSMuC, CSlider::m_bSSC, CSlider::m_bPMaC, CSlider::m_bPMuC, CSlider::m_bPSC;
+bool CSlider::m_bSMaC, CSlider::m_bSMuC, CSlider::m_bSSC, CSlider::m_bPMaC, CSlider::m_bPMuC, CSlider::m_bPSC, CSlider::m_bSG, CSlider::m_bPG;
 
-CSlider::CSlider(int menu, int nType, float fWidth, float fHeight, float fwWidth, float fwHeight,
+CSlider::CSlider(int menu, int nVary, int nType, float fWidth, float fHeight, float fwWidth, float fwHeight,
 	float fLeft, float fRight, float fTop, float fBottom)
 {
 	m_pcButtonToMove = nullptr;
@@ -25,100 +26,9 @@ CSlider::CSlider(int menu, int nType, float fWidth, float fHeight, float fwWidth
 	m_fBoundsMax = m_fwWidth * m_fRight;
 	m_fBoundsMin = m_fwWidth * m_fLeft;
 	// Sets the value the slider directly influences
-	switch (m_nType)
+	m_nVary = nVary;
+	if (nVary == 0)
 	{
-	case eAudio::MUSIC:
-	{
-		m_fValue = CAudioManager::GetMusicVol();
-		break;
-	}
-	case eAudio::SFX:
-	{
-		m_fValue = CAudioManager::GetSFXVol();
-		break;
-	}
-	case eAudio::COUNT:
-	{
-		m_fValue = CAudioManager::GetMasterVol();
-		break;
-	}
-	default:
-		m_fValue = 0.0f;
-		break;
-	}
-	// Figures out which menu we go to, and sets the button up for our specific needs
-	switch (m_nMenu)
-	{
-	case eMenu::START_OPTIONS:
-	{
-		switch (m_nType)
-		{
-		case eAudio::MUSIC:
-		{
-			m_pcButtonToMove = new CButton(SMuC, L"", (int)fWidth, (int)fHeight, fwWidth, fwHeight, 
-				fLeft, fRight, fTop - 0.02f, fBottom + 0.02f);
-			break;
-		}
-		case eAudio::SFX:
-		{
-			m_pcButtonToMove = new CButton(SSC, L"", (int)fWidth, (int)fHeight, fwWidth, fwHeight, 
-				fLeft, fRight, fTop - 0.02f, fBottom + 0.02f);
-			break;
-		}
-		case eAudio::COUNT:
-		{
-			m_pcButtonToMove = new CButton(SMaC, L"", (int)fWidth, (int)fHeight, fwWidth, fwHeight, 
-				fLeft, fRight, fTop - 0.02f, fBottom + 0.02f);
-			break;
-		}
-		default:
-			break;
-		}
-		break;
-	}
-	case eMenu::PAUSE_OPTIONS:
-	{
-		switch (m_nType)
-		{
-		case eAudio::MUSIC:
-		{
-			m_pcButtonToMove = new CButton(PMuC, L"", (int)fWidth, (int)fHeight, fwWidth, fwHeight, 
-				fLeft, fRight, fTop - 0.02f, fBottom + 0.02f);
-			break;
-		}
-		case eAudio::SFX:
-		{
-			m_pcButtonToMove = new CButton(PSC, L"", (int)fWidth, (int)fHeight, fwWidth, fwHeight, 
-				fLeft, fRight, fTop - 0.02f, fBottom + 0.02f);
-			break;
-		}
-		case eAudio::COUNT:
-		{
-			m_pcButtonToMove = new CButton(PMaC, L"", (int)fWidth, (int)fHeight, fwWidth, fwHeight, 
-				fLeft, fRight, fTop - 0.02f, fBottom + 0.02f);
-			break;
-		}
-		default:
-			break;
-		}
-		break;
-	}
-	default:
-		break;
-	}
-
-	// Sets the button to correct dimensions
-	ChangePosition();
-	// Slider Bar render box
-	m_rBox = D2D1::RectF(fWidth * fLeft, fHeight * fTop, fWidth * fRight, fHeight * fBottom);
-}
-
-void CSlider::Update()
-{
-	if (!m_bSMaC && !m_bSMuC && !m_bSSC && !m_bPMaC && !m_bPMuC && !m_bPSC)
-	{
-		// Runs if all variables are false
-		// Update value if another menu changed it
 		switch (m_nType)
 		{
 		case eAudio::MUSIC:
@@ -140,16 +50,7 @@ void CSlider::Update()
 			m_fValue = 0.0f;
 			break;
 		}
-		// Update position for safety
-		ChangePosition();
-		// Run the update function on the button
-		m_pcButtonToMove->Update();
-	}
-	else if (CInputManager::GetKey(VK_LBUTTON))
-	{
-		// One of the booleans are true, run this if the left mouse button is being held down
-		bool change;
-		// Check to see what slider needs to change
+		// Figures out which menu we go to, and sets the button up for our specific needs
 		switch (m_nMenu)
 		{
 		case eMenu::START_OPTIONS:
@@ -158,21 +59,23 @@ void CSlider::Update()
 			{
 			case eAudio::MUSIC:
 			{
-				change = m_bSMuC;
+				m_pcButtonToMove = new CButton(SMuC, L"", (int)fWidth, (int)fHeight, fwWidth, fwHeight,
+					fLeft, fRight, fTop - 0.01f, fBottom + 0.01f);
 				break;
 			}
 			case eAudio::SFX:
 			{
-				change = m_bSSC;
+				m_pcButtonToMove = new CButton(SSC, L"", (int)fWidth, (int)fHeight, fwWidth, fwHeight,
+					fLeft, fRight, fTop - 0.01f, fBottom + 0.01f);
 				break;
 			}
 			case eAudio::COUNT:
 			{
-				change = m_bSMaC;
+				m_pcButtonToMove = new CButton(SMaC, L"", (int)fWidth, (int)fHeight, fwWidth, fwHeight,
+					fLeft, fRight, fTop - 0.01f, fBottom + 0.01f);
 				break;
 			}
 			default:
-				change = false;
 				break;
 			}
 			break;
@@ -183,27 +86,181 @@ void CSlider::Update()
 			{
 			case eAudio::MUSIC:
 			{
-				change = m_bPMuC;
+				m_pcButtonToMove = new CButton(PMuC, L"", (int)fWidth, (int)fHeight, fwWidth, fwHeight,
+					fLeft, fRight, fTop - 0.01f, fBottom + 0.01f);
 				break;
 			}
 			case eAudio::SFX:
 			{
-				change = m_bPSC;
+				m_pcButtonToMove = new CButton(PSC, L"", (int)fWidth, (int)fHeight, fwWidth, fwHeight,
+					fLeft, fRight, fTop - 0.01f, fBottom + 0.01f);
 				break;
 			}
 			case eAudio::COUNT:
 			{
-				change = m_bPMaC;
+				m_pcButtonToMove = new CButton(PMaC, L"", (int)fWidth, (int)fHeight, fwWidth, fwHeight,
+					fLeft, fRight, fTop - 0.01f, fBottom + 0.01f);
 				break;
 			}
 			default:
-				change = false;
 				break;
 			}
 			break;
 		}
 		default:
 			break;
+		}
+	}
+	else
+	{
+		m_fValue = CRenderManager::GetBrightness();
+		switch (m_nMenu)
+		{
+		case eMenu::START_OPTIONS:
+		{
+			m_pcButtonToMove = new CButton(SG, L"", (int)fWidth, (int)fHeight, fwWidth, fwHeight,
+				fLeft, fRight, fTop - 0.01f, fBottom + 0.01f);
+			break;
+		}
+		case eMenu::PAUSE_OPTIONS:
+		{
+			m_pcButtonToMove = new CButton(PG, L"", (int)fWidth, (int)fHeight, fwWidth, fwHeight,
+				fLeft, fRight, fTop - 0.01f, fBottom + 0.01f);
+			break;
+		}
+		default:
+			break;
+		}
+	}
+	
+
+	// Sets the button to correct dimensions
+	ChangePosition();
+	// Slider Bar render box
+	m_rBox = D2D1::RectF(fWidth * fLeft, fHeight * fTop, fWidth * fRight, fHeight * fBottom);
+}
+
+void CSlider::Update()
+{
+	if (!m_bSMaC && !m_bSMuC && !m_bSSC && !m_bPMaC && !m_bPMuC && !m_bPSC && !m_bSG && !m_bPG)
+	{
+		// Runs if all variables are false
+		// Update value if another menu changed it
+		if (m_nVary == 0)
+		{
+
+			switch (m_nType)
+			{
+			case eAudio::MUSIC:
+			{
+				m_fValue = CAudioManager::GetMusicVol();
+				break;
+			}
+			case eAudio::SFX:
+			{
+				m_fValue = CAudioManager::GetSFXVol();
+				break;
+			}
+			case eAudio::COUNT:
+			{
+				m_fValue = CAudioManager::GetMasterVol();
+				break;
+			}
+			default:
+				m_fValue = 0.0f;
+				break;
+			}
+		}
+		else
+		{
+			m_fValue = CRenderManager::GetBrightness();
+		}
+		// Update position for safety
+		ChangePosition();
+		// Run the update function on the button
+		m_pcButtonToMove->Update();
+	}
+	else if (CInputManager::GetKey(VK_LBUTTON))
+	{
+		// One of the booleans are true, run this if the left mouse button is being held down
+		bool change;
+		// Check to see what slider needs to change
+		if (m_nVary == 0)
+		{
+			switch (m_nMenu)
+			{
+			case eMenu::START_OPTIONS:
+			{
+				switch (m_nType)
+				{
+				case eAudio::MUSIC:
+				{
+					change = m_bSMuC;
+					break;
+				}
+				case eAudio::SFX:
+				{
+					change = m_bSSC;
+					break;
+				}
+				case eAudio::COUNT:
+				{
+					change = m_bSMaC;
+					break;
+				}
+				default:
+					change = false;
+					break;
+				}
+				break;
+			}
+			case eMenu::PAUSE_OPTIONS:
+			{
+				switch (m_nType)
+				{
+				case eAudio::MUSIC:
+				{
+					change = m_bPMuC;
+					break;
+				}
+				case eAudio::SFX:
+				{
+					change = m_bPSC;
+					break;
+				}
+				case eAudio::COUNT:
+				{
+					change = m_bPMaC;
+					break;
+				}
+				default:
+					change = false;
+					break;
+				}
+				break;
+			}
+			default:
+				break;
+			}
+		}
+		else
+		{
+			switch (m_nMenu)
+			{
+			case eMenu::START_OPTIONS:
+			{
+				change = m_bSG;
+				break;
+			}
+			case eMenu::PAUSE_OPTIONS:
+			{
+				change = m_bPG;
+				break;
+			}
+			default:
+				change = false;
+				break;
+			}
 		}
 		if (change)
 		{
@@ -213,8 +270,12 @@ void CSlider::Update()
 	}
 	else
 	{
+		if (m_bSSC || m_bPSC)
+		{
+			CEventManager::SendAudioMessage(TAudioMessage(true, eAudio::SFX, eSFX::BUTTON));
+		}
 		// Set everything back to false, one of them is true and we aren't changing them
-		m_bSMaC = m_bSMuC = m_bSSC = m_bPMaC = m_bPMuC = m_bPSC = false;
+		m_bSMaC = m_bSMuC = m_bSSC = m_bPMaC = m_bPMuC = m_bPSC = m_bSG = m_bPG = false;
 	}
 }
 
@@ -250,25 +311,32 @@ void CSlider::ChangeSliderValue()
 	}
 
 	// Change the volume depending on what we are changing
-	switch (m_nType)
+	if (m_nVary == 0)
 	{
-	case eAudio::MUSIC:
-	{
-		CAudioManager::ChangeMusicVol(m_fValue);
-		break;
+		switch (m_nType)
+		{
+		case eAudio::MUSIC:
+		{
+			CAudioManager::ChangeMusicVol(m_fValue);
+			break;
+		}
+		case eAudio::SFX:
+		{
+			CAudioManager::ChangeSFXVol(m_fValue);
+			break;
+		}
+		case eAudio::COUNT:
+		{
+			CAudioManager::ChangeMasterVol(m_fValue);
+			break;
+		}
+		default:
+			break;
+		}
 	}
-	case eAudio::SFX:
+	else
 	{
-		CAudioManager::ChangeSFXVol(m_fValue);
-		break;
-	}
-	case eAudio::COUNT:
-	{
-		CAudioManager::ChangeMasterVol(m_fValue);
-		break;
-	}
-	default:
-		break;
+		CRenderManager::SetBrightness(m_fValue);
 	}
 }
 
@@ -330,4 +398,14 @@ void CSlider::PMuC()
 void CSlider::PSC()
 {
 	m_bPSC = true;
+}
+
+void CSlider::SG()
+{
+	m_bSG = true;
+}
+
+void CSlider::PG()
+{
+	m_bPG = true;
 }

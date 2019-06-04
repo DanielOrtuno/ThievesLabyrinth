@@ -10,6 +10,7 @@ class CButton
 	D2D1_RECT_F m_fBox;
 	const WCHAR* m_pButtonText;
 	size_t m_nTextLength;
+	bool m_bHovered;
 	void(*m_pFunction)();
 
 	// Checks to see if the cursor is over the button
@@ -43,6 +44,9 @@ public:
 	// fLeft: new left ratio between 0-1
 	// fRight: new right ratio between 0-1
 	void ChangeLeftRight(float fLeft, float fRight);
+
+	// Returns wether or not the mouse is hovering over the button
+	bool IsHovered();
 
 	~CButton();
 };

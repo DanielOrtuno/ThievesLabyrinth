@@ -1,31 +1,39 @@
 #include "AudioManager.h"
 #include "EventManager.h"
-#include "EnumTypes.h"
 
 #include <fstream>
 
-GW::AUDIO::GSound** CAudioManager::m_cSoundList;
-GW::AUDIO::GMusic** CAudioManager::m_cMusicList;
+GW::AUDIO::GSound* CAudioManager::m_cSoundList[SOUND_INSTANCES][eSFX::COUNT];
+GW::AUDIO::GMusic* CAudioManager::m_cMusicList[eMusic::COUNT];
 GW::AUDIO::GAudio* CAudioManager::m_pAudio;
 
-bool CAudioManager::m_bMuted;
+
 float CAudioManager::m_nMasterVol, CAudioManager::m_nMusicVol, CAudioManager::m_nSFXVol;
 
+int CAudioManager::nCurrentMusic;
 
 CAudioManager::CAudioManager()
 {
-	m_cSoundList = new GW::AUDIO::GSound*[eSFX::COUNT];
-	m_cMusicList = new GW::AUDIO::GMusic*[eMusic::COUNT];
 
-	m_bMuted = false;
+	m_bPaused = false;
 	if (GW::GReturn::FAILURE == GW::AUDIO::CreateGAudio(&m_pAudio))
 	{
 		exit(-1);
 	}
 	m_pAudio->SetMasterVolume(m_nMasterVol);
+}
 
-	AddMusic("..//Assets//Sounds//Doom.wav", eMusic::MAIN, true);
-	AddSFX("..//Assets//Sounds//Button.wav", eSFX::BUTTON);
+CAudioManager::~CAudioManager()
+{
+	
+}
+
+void CAudioManager::Initialize()
+{
+	AddMusic("..//Assets//Sounds//Thieves_Plunder(Compressed).wav", eMusic::THIEVES_PLUNDER);
+	AddMusic("..//Assets//Sounds//Tomb of Thieve's(compressed).wav", eMusic::TOMB_OF_THIEVES);
+	AddMusic("..//Assets//Sounds//Thieve's Bounty(compressed).wav", eMusic::THIEVES_BOUNTY);
+	AddSFX("..//Assets//Sounds//Switch.wav", eSFX::BUTTON);
 	AddSFX("..//Assets//Sounds//footsteps.wav", eSFX::PLAYERMOVE);
 	AddSFX("..//Assets//Sounds//Hit-1.wav", eSFX::HIT);
 	AddSFX("..//Assets//Sounds//Hit-2.wav", eSFX::HIT2);
@@ -33,38 +41,42 @@ CAudioManager::CAudioManager()
 	AddSFX("..//Assets//Sounds//Hit-4.wav", eSFX::HIT4);
 	AddSFX("..//Assets//Sounds//FireBall-1.wav", eSFX::FIREBALL1);
 	AddSFX("..//Assets//Sounds//FireBall-2.wav", eSFX::FIREBALL2);
+	AddSFX("..//Assets//Sounds//Firewall.wav", eSFX::FIREWALL);
+	AddSFX("..//Assets//Sounds//Block.wav", eSFX::BLOCK);
+	AddSFX("..//Assets//Sounds//Stone-1.wav", eSFX::STONE_IMPACT_1);
+	AddSFX("..//Assets//Sounds//Stone-2.wav", eSFX::STONE_IMPACT_2);
+	AddSFX("..//Assets//Sounds//Stone-3.wav", eSFX::STONE_IMPACT_3);
+	AddSFX("..//Assets//Sounds//Stone-4.wav", eSFX::STONE_IMPACT_4);
+	AddSFX("..//Assets//Sounds//Stone-5.wav", eSFX::STONE_IMPACT_5);
+	AddSFX("..//Assets//Sounds//DoorOpen.wav", eSFX::DOOR_OPEN);
+	AddSFX("..//Assets//Sounds//DoorClose.wav", eSFX::DOOR_CLOSE);
+	AddSFX("..//Assets//Sounds//Projectile_Sound.wav", eSFX::ARROW_WOOSH);
+	AddSFX("..//Assets//Sounds//Explosion.wav", eSFX::EXPLOSION);
+	AddSFX("..//Assets//Sounds//Potion1.wav", eSFX::POTION);
+	AddSFX("..//Assets//Sounds//Spikes.wav", eSFX::SPIKES);
+	AddSFX("..//Assets//Sounds//Fuse.wav", eSFX::FUSE);
+	AddSFX("..//Assets//Sounds//Death.wav", eSFX::LOSE);
+	AddSFX("..//Assets//Sounds//Teleport.wav", eSFX::TELEPORT);
+	AddSFX("..//Assets//Sounds//Sword.wav", eSFX::KNIGHT_ATTACK);
 }
 
-CAudioManager::~CAudioManager()
+void CAudioManager::ShutDown()
 {
+	bool bIsplaying = false;
 	for (size_t i = 0; i < eMusic::COUNT; i++)
 	{
-		m_cMusicList[i]->SetVolume(0);
-		m_cMusicList[i]->ResumeStream();
-		if (GW::GReturn::FAILURE == m_cMusicList[i]->DecrementCount())
+		m_cMusicList[i]->isStreamPlaying(bIsplaying);
+		if (bIsplaying)
 		{
-			CEventManager::SendDebugMessage(TDebugMessage("ERROR. Music failed to Decrement."));
+			m_cMusicList[i]->SetVolume(0);
+			m_cMusicList[i]->ResumeStream();
 		}
-	}
-	for (size_t i = 0; i < eSFX::COUNT; i++)
-	{
-		if (GW::GReturn::FAILURE == m_cSoundList[i]->DecrementCount())
-		{
-			CEventManager::SendDebugMessage(TDebugMessage("ERROR. Sound failed to Decrement."));
-		}
-	}
-	unsigned int size = 0;
-	m_pAudio->GetCount(size);
-	for (size_t i = 0; i < size; i++)
-	{
-		m_pAudio->DecrementCount();
 	}
 
-	delete[] m_cMusicList;
-	delete[] m_cSoundList;
+	m_pAudio->DecrementCount();
 }
 
-void CAudioManager::AddMusic(const char* _pchFilepath, int nType, bool bLoop)
+void CAudioManager::AddMusic(const char* _pchFilepath, int nType, bool bPlay)
 {
 	GW::AUDIO::GMusic* pMusic;
 
@@ -78,13 +90,17 @@ void CAudioManager::AddMusic(const char* _pchFilepath, int nType, bool bLoop)
 		CEventManager::SendDebugMessage(TDebugMessage("ERROR. Music Vol failed to set from: " + std::string(_pchFilepath)));
 	}
 
-	if (GW::GReturn::FAILURE == pMusic->StreamStart(bLoop))
+	/*if (GW::GReturn::FAILURE == pMusic->StreamStart(true))
 	{
 		CEventManager::SendDebugMessage(TDebugMessage("ERROR. Music stream failed to start from: " + std::string(_pchFilepath)));
 	}
 
+	if (!bPlay)
+	{
+		pMusic->PauseStream();
+	}*/
+
 	m_cMusicList[nType] = pMusic;
-	CEventManager::SendDebugMessage(TDebugMessage::TDebugMessage(std::string(_pchFilepath) + " added to music"));
 }
 
 void CAudioManager::ChangeMusicVol(float fVal)
@@ -102,18 +118,19 @@ void CAudioManager::ChangeMusicVol(float fVal)
 void CAudioManager::AddSFX(const char * _pchFilepath, int nType)
 {
 	GW::AUDIO::GSound* pSFX = nullptr;
-
-	if (GW::GReturn::FAILURE == m_pAudio->CreateSound(_pchFilepath, &pSFX))
+	for (size_t i = 0; i < SOUND_INSTANCES; i++)
 	{
-		CEventManager::SendDebugMessage(TDebugMessage("ERROR. SFX stream failed to start from: " + std::string(_pchFilepath)));
-	}
+		if (GW::GReturn::FAILURE == m_pAudio->CreateSound(_pchFilepath, &pSFX))
+		{
+			CEventManager::SendDebugMessage(TDebugMessage("ERROR. SFX stream failed to start from: " + std::string(_pchFilepath)));
+		}
 
-	if (GW::GReturn::FAILURE == pSFX->SetVolume(m_nSFXVol))
-	{
-		CEventManager::SendDebugMessage(TDebugMessage("ERROR. SFX failed to set vol from: " + std::string(_pchFilepath)));
+		if (GW::GReturn::FAILURE == pSFX->SetVolume(m_nSFXVol))
+		{
+			CEventManager::SendDebugMessage(TDebugMessage("ERROR. SFX failed to set vol from: " + std::string(_pchFilepath)));
+		}
+		m_cSoundList[i][nType] = pSFX;
 	}
-	m_cSoundList[nType] = pSFX;
-	CEventManager::SendDebugMessage(TDebugMessage(std::string(_pchFilepath) + " added to sounds."));
 }
 
 void CAudioManager::ReceiveSoundRequest(bool bTrue, int nType, int nSound)
@@ -122,34 +139,23 @@ void CAudioManager::ReceiveSoundRequest(bool bTrue, int nType, int nSound)
 	{
 	case eAudio::SFX:
 	{
-		if (bTrue)
+		bool bTemp = false;
+		for (size_t i = 0; i < SOUND_INSTANCES; i++)
 		{
-			if (nSound == eSFX::BUTTON,eSFX::PLAYERMOVE)
+			m_cSoundList[i][nSound]->isSoundPlaying(bTemp);
+			if (bTemp)
+				continue;
+
+			if (bTrue)
 			{
-				bool bTemp = false;
-				m_cSoundList[nSound]->isSoundPlaying(bTemp);
-				if (!bTemp)
-				{
-					m_cSoundList[nSound]->Play();
-				}
+				m_cSoundList[i][nSound]->Play();
+				break;
 			}
 			else
 			{
-				m_cSoundList[nSound]->Play();
+				m_cSoundList[i][nSound]->Pause();
+				break;
 			}
-			//else
-			//{
-			//	bool bTemp = false;
-			//	m_cSoundList[nSound]->isSoundPlaying(bTemp);
-			//	if (!bTemp)
-			//	{
-			//		m_cSoundList[nSound]->Play();
-			//	}
-			//}
-		}
-		else
-		{
-			m_cSoundList[nSound]->Pause();
 		}
 	}
 	break;
@@ -157,11 +163,12 @@ void CAudioManager::ReceiveSoundRequest(bool bTrue, int nType, int nSound)
 	{
 		if (bTrue)
 		{
-			m_cMusicList[nSound]->StreamStart(true);
+			m_cMusicList[nSound]->ResumeStream();
+			nCurrentMusic = nSound;
 		}
 		else
 		{
-			m_cMusicList[nSound]->StopStream();
+			m_cMusicList[nSound]->PauseStream();
 		}
 	}
 	break;
@@ -174,37 +181,61 @@ void CAudioManager::ReceiveSoundRequest(bool bTrue, int nType, int nSound)
 void CAudioManager::ChangeSFXVol(float fVal)
 {
 	m_nSFXVol = fVal;
-	for (size_t i = 0; i < eSFX::COUNT; i++)
-	{
-		m_cSoundList[i]->SetVolume(m_nSFXVol);
-	}
+	for (size_t j = 0; j < SOUND_INSTANCES; j++)
+		for (size_t i = 0; i < eSFX::COUNT; i++)
+		{
+			m_cSoundList[j][i]->SetVolume(m_nSFXVol);
+		}
 }
 
 void CAudioManager::ChangeMasterVol(float fVal)
 {
 	m_nMasterVol = fVal;
 	m_pAudio->SetMasterVolume(fVal);
-	CEventManager::SendDebugMessage(TDebugMessage(std::string("Master volume changed to ") + std::to_string(m_nMasterVol)));
 	ChangeMusicVol(m_nMusicVol);
 	ChangeSFXVol(m_nSFXVol);
 }
 
-void CAudioManager::ToggleMusic()
+void CAudioManager::ChangeCurrentMusic(int nMusic)
 {
+	int nLastMusic = nCurrentMusic;
+	nCurrentMusic = nMusic;
 
-	m_bMuted = !m_bMuted;
-	if (m_bMuted)
+	m_cMusicList[nLastMusic]->StopStream();
+	m_cMusicList[nCurrentMusic]->StreamStart(true);
+}
+
+int CAudioManager::GetCurrentMusic()
+{
+	return nCurrentMusic;
+}
+
+void CAudioManager::TogglePause()
+{
+	m_bPaused = !m_bPaused;
+	if (!m_bPaused)
 	{
-		for (size_t i = 0; i < eMusic::COUNT; i++)
+		for (short i = 0; i < SOUND_INSTANCES; i++)
 		{
-			m_cMusicList[i]->ResumeStream();
+			for (short j = 0; j < eSFX::COUNT; j++)
+			{
+				if (m_pbPlayingSFX[i][j])
+					m_cSoundList[i][j]->Resume();
+				m_pbPlayingSFX[i][j] = false;
+			}
 		}
 	}
 	else
 	{
-		for (size_t i = 0; i < eMusic::COUNT; i++)
+		bool bIsPlaying = false;
+		for (short i = 0; i < SOUND_INSTANCES; i++)
 		{
-			m_cMusicList[i]->PauseStream();
+			for (short j = 0; j < eSFX::COUNT; j++)
+			{
+				m_cSoundList[i][j]->isSoundPlaying(bIsPlaying);
+				m_pbPlayingSFX[i][j] = bIsPlaying;
+				m_cSoundList[i][j]->Pause();
+			}
 		}
 	}
 }

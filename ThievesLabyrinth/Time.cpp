@@ -11,9 +11,7 @@ double CTime::dGameTime;
 
 CTime::CTime()
 {
-	dDelta = dLast = dGameTime = 0.0;
-	tTimeStart = clock();
-	bPaused = false;
+	Restart();
 }
 
 
@@ -25,6 +23,13 @@ float CTime::GetDeltaF()
 double CTime::GetTotalTime()
 {
 	return dGameTime;
+}
+
+void CTime::Restart()
+{
+	dDelta = dLast = dGameTime = 0.0;
+	tTimeStart = clock();
+	bPaused = false;
 }
 
 CTime::~CTime()

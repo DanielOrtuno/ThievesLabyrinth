@@ -9,7 +9,7 @@ class CCameraController : public IComponent
 {
 	CRigidbody* m_pcRigidBody;
 	CTransform* m_pPlayerPos;
-	CTransform* m_pCameraTransform;
+	static CTransform* m_pCameraTransform;
 	float m_fSpeed;
 	float m_fSpeedDebug;
 	bool follow;
@@ -21,6 +21,9 @@ class CCameraController : public IComponent
 
 public:
 	CCameraController(IEntity* pcOwner);
+
+	static CTransform* GetCamera();
+
 	void Update();
 
 	~CCameraController();

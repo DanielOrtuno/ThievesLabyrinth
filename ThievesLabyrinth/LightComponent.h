@@ -20,6 +20,7 @@ public:
 	float GetRadius();
 
 	CLightComponent& operator=(CLightComponent& cCopy);
+	bool operator==(const CLightComponent* cRight);
 
 	~CLightComponent();
 };

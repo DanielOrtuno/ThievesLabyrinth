@@ -16,6 +16,11 @@ class CMeshRenderer : public IComponent
 
 	int		m_nInputLayout;
 
+
+	bool			m_bGlow;
+	
+	CMath::TVECTOR4 m_vGlowColor;
+
 public:
 	CMeshRenderer(IEntity* pcOwner);
 
@@ -31,6 +36,8 @@ public:
 	int GetPixelShader();
 	int GetSampler();
 	int GetInputLayout();
+	bool IsGlowing();
+	CMath::TVECTOR4 GetGlowColor();
 
 	/***************
 	* Mutators
@@ -44,6 +51,8 @@ public:
 	void SetPixelShader(int nPS);
 	void SetSampler(int nSampler);
 	void SetInputLayout(int nInputLayout);
+	void SetGlowEffect(bool bGlow);
+	void SetGlowColor(CMath::TVECTOR4 vGlowColor);
 
 	CMeshRenderer& operator=(CMeshRenderer& cCopy);
 

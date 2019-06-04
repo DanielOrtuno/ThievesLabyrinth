@@ -20,7 +20,7 @@ class CSpikeTrapController : public IComponent
 public:
 	CSpikeTrapController(IEntity* pcOwner);
 
-	void Update();
+	void Update(float fDeltaTime);
 
 	void SetDamage(float fDamage);
 

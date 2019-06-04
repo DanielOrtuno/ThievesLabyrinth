@@ -12,32 +12,38 @@
 #include "AnimatorComponent.h"
 #include "CapsuleCollider.h"
 #include "BoxCollider.h"
+#include "PathAgent.h"
 
 
 
 CVikingController::CVikingController(IEntity* pcOwner) : IEnemyController(pcOwner)
 {
+	InitializeComponents();
+	InitializeProjectile();
+
 	m_nEnemyType = eEnemyType::VIKING;
+	m_bEnemyCountSet = false;
 
-	m_pcTransform = m_pcOwner->GetComponent<CTransform>();
-	m_pcRigidbody = m_pcOwner->GetComponent<CRigidbody>();
-	m_pcStats = m_pcOwner->GetComponent<CStats>();
-	m_pcStats->SetAttackSpeed(1.0f);
-	m_pcAnimator = m_pcOwner->GetComponent<CAnimatorComponent>();
-
-	m_pcAnimator->SetAnimation(eEnemyAnimation::IDLE);
-
-	m_fLastAttackTime = 0.0f;
-	m_bIsAttacking = false;
-
+	m_fSafeDistance = 4.0f;
 	m_fDeathTimer = 0.0;
 
-	Init();
+	m_bIsAttacking = false;
+	m_bHasAttacked = false;
+	m_bIsMad = false;
+
 }
 
-void CVikingController::Update()
+void CVikingController::Update(float fDeltaTime)
 {
-	if (m_pcStats->GetHP() <= 0)
+	IEnemyController::Update(fDeltaTime);
+
+	if (!m_bEnemyCountSet)
+	{
+		m_nEnemyCount = m_pcOwner->m_pcRoom->m_nEnemyCount;
+		m_bEnemyCountSet = true;
+	}
+
+	if (IsDead())
 	{
 		if (m_pcAnimator->GetCurrentAnimation() != eEnemyAnimation::DEATH)
 		{
@@ -51,30 +57,28 @@ void CVikingController::Update()
 			m_pcOwner->GetComponent<CVikingController>()->SetActiveState(true);
 
 			m_pcRigidbody->SetVelocity({ 0,0,0 });
-
-			m_pcOwner->GetComponent<CMeshRenderer>()->SetPixelShader(ePixelShader::DISSOLVE);
 		}
 		else
 		{
-			m_fDeathTimer += (float)CTime::GetDelta() * .25f;
+			m_fDeathTimer += fDeltaTime * .25f;
 		}
 
 		return;
 	}
 
-	m_fLastAttackTime -= (float)CTime::GetDelta();
+	if (!m_bIsMad && m_pcOwner->m_pcRoom->m_nEnemyCount <= m_nEnemyCount / 2)
+	{
+		m_pcStats->SetMovementSpeed(m_pcStats->GetMovementSpeed() * 1.5f);
+		m_pcStats->SetAttackSpeed(m_pcStats->GetAttackSpeed() * 2.0f);
+		m_bIsMad = true;
+	}
 
-
-
-	CMath::TVECTOR3 tVectorToTarget = m_pcTarget->GetPosition() - m_pcTransform->GetPosition();
+	CMath::TVECTOR3 tVectorToTarget = m_pcPlayerTransform->GetPosition() - m_pcTransform->GetPosition();
 	float fDis = m_pcOwner->GetComponent<CCapsuleCollider>()->GetRadius() * m_pcTransform->GetScale().x + 2.0f;
 	if (CMath::Vector3Magnitude(tVectorToTarget) > fDis)
 	{
-		CMath::TVECTOR3 tNormalVelocity = CMath::Vector3Normalize(tVectorToTarget);
-		CMath::TVECTOR3 tFinalVelocity = tNormalVelocity * m_pcStats->GetMovementSpeed();
-
-		m_pcTransform->TurnTo(m_pcTarget);
-		m_pcRigidbody->SetVelocity(tFinalVelocity);
+		m_pcAgent->Start();
+		m_pcTransform->TurnTo(m_pcPlayerTransform, fDeltaTime);
 
 		// Play Viking walk animation
 		if (m_pcAnimator->GetCurrentAnimation() != eEnemyAnimation::WALK)
@@ -85,44 +89,32 @@ void CVikingController::Update()
 	}
 	else
 	{
+		m_pcAgent->Stop();
 		m_pcRigidbody->SetVelocity({ 0, 0, 0 });
-		m_pcTransform->TurnTo(m_pcTarget);
+		m_pcTransform->TurnTo(m_pcPlayerTransform, fDeltaTime);
 
-		if (m_fLastAttackTime <= 0)
+		// Play Viking attack animation
+		SwitchAnimation(eEnemyAnimation::ATTACK, false, 0.0f, m_pcStats->GetAttackSpeed());
+		m_pcAnimator->SetLoop(true);
+
+		m_bIsAttacking = true;
+
+		if (m_pcAnimator->GetCurrentAnimationTime() <= 0.9f)
 		{
-			// Play Viking attack animation
-			if (m_pcAnimator->GetCurrentAnimation() != eEnemyAnimation::ATTACK)
-			{
-				m_pcAnimator->SetAnimation(eEnemyAnimation::ATTACK);
-				m_pcAnimator->SetAnimationTime(0.0);
-				m_pcAnimator->SetSpeed(1.0f);
-			}
-
-			m_bIsAttacking = true;
-			m_fLastAttackTime = m_pcStats->GetAttackSpeed();
+			m_bHasAttacked = false;
 		}
 
-		if (m_bIsAttacking && m_fLastAttackTime < m_pcStats->GetAttackSpeed() - 0.35f)
+		if (!m_bHasAttacked && m_pcAnimator->GetCurrentAnimationTime() > 0.9f)
 		{
 			Attack();
-		}
-
-		if (!m_bIsAttacking && m_fLastAttackTime <= 0.0f)
-		{
-			// Player Viking idle animation
-			if (m_pcAnimator->GetCurrentAnimation() != eEnemyAnimation::IDLE)
-			{
-				m_pcAnimator->SetAnimation(eEnemyAnimation::IDLE);
-				m_pcAnimator->SetAnimationTime(0.0);
-				m_pcAnimator->SetSpeed(1.0f);
-			}
+			m_bHasAttacked = true;
 		}
 	}
 }
 
 void CVikingController::Attack()
 {
-	CProjectileEntity* pcNewProjectile = (CProjectileEntity*)CEntityManager::CloneEntity(m_pcMeleeRef);
+	CProjectileEntity* pcNewProjectile = (CProjectileEntity*)CEntityManager::CloneEntity(m_pcProjectileRef);
 	pcNewProjectile->GetComponent<CProjectileComponent>()->SetDamage(m_pcStats->GetBaseDamage()); //Modify damage based on items/stats/buffs/debuffs
 	pcNewProjectile->m_pcRoom = m_pcOwner->m_pcRoom;
 
@@ -139,33 +131,27 @@ void CVikingController::Attack()
 	m_bIsAttacking = false;
 }
 
-void CVikingController::Init()
+void CVikingController::InitializeProjectile()
 {
-	m_pcMeleeRef = (CProjectileEntity*)CEntityManager::CreateEntity(eEntity::PROJECTILE);
-	CEntityManager::AddComponentToEntity(m_pcMeleeRef, eComponent::TRANSFORM);
+	m_pcProjectileRef = (CProjectileEntity*)CEntityManager::CreateEntity(eEntity::PROJECTILE);
+	CEntityManager::AddComponentToEntity(m_pcProjectileRef, eComponent::TRANSFORM);
 
-	CBoxCollider* pcMeleeCollider = (CBoxCollider*)CEntityManager::AddComponentToEntity(m_pcMeleeRef, eComponent::BOX_COLLIDER);
+	CBoxCollider* pcMeleeCollider = (CBoxCollider*)CEntityManager::AddComponentToEntity(m_pcProjectileRef, eComponent::BOX_COLLIDER);
 	pcMeleeCollider->SetExtent({ 0.33f, 1.0f, 0.33f });
 	pcMeleeCollider->SetTrigger(true);
 
-	CEntityManager::AddComponentToEntity(m_pcMeleeRef, eComponent::RIGIDBODY);
+	CEntityManager::AddComponentToEntity(m_pcProjectileRef, eComponent::RIGIDBODY);
 
-	CProjectileComponent* pcMeleeComponent = (CProjectileComponent*)CEntityManager::AddComponentToEntity(m_pcMeleeRef, eComponent::PROJECTILE_COMPONENT);
+	CProjectileComponent* pcMeleeComponent = (CProjectileComponent*)CEntityManager::AddComponentToEntity(m_pcProjectileRef, eComponent::PROJECTILE_COMPONENT);
 	pcMeleeComponent->SetDamage(1.0f);
 	pcMeleeComponent->SetLifeTime(0.1f);
 	pcMeleeComponent->SetCasterEntity(eEntity::ENEMY);
-	m_pcMeleeRef->SetActiveState(false);
-}
-
-void CVikingController::GetPlayerReference()
-{
-	TEntityMessage message = TEntityMessage(0);
-	m_pcTarget = CEventManager::SendEntityMessage(message)->GetComponent<CTransform>();
+	m_pcProjectileRef->SetActiveState(false);
 }
 
 CVikingController & CVikingController::operator=(CVikingController & cCopy)
 {
-	m_pcTarget = cCopy.m_pcTarget;
+	m_pcPlayerTransform = cCopy.m_pcPlayerTransform;
 
 	return *this;
 }

@@ -2,6 +2,7 @@
 #include "EventManager.h"
 #include "Transform.h"
 #include "EnumTypes.h"
+#include "Entity.h"
 
 CBoxCollider::CBoxCollider(IEntity * pcOwner) : ICollider(pcOwner)
 {
@@ -12,6 +13,11 @@ CBoxCollider::CBoxCollider(IEntity * pcOwner) : ICollider(pcOwner)
 CMath::TVECTOR3 CBoxCollider::GetCenter()
 {
 	return m_tCenter;
+}
+
+CMath::TVECTOR3 CBoxCollider::GetLocalCenter()
+{
+	return CMath::Vector3Transform(m_tCenter, m_pcTransform->GetMatrix());
 }
 
 CMath::TVECTOR3 CBoxCollider::GetExtent()
@@ -31,16 +37,22 @@ void CBoxCollider::SetExtent(CMath::TVECTOR3 tExtent)
 
 void CBoxCollider::RenderCollider()
 {
+	if (m_pcOwner->m_nEntityId == 326)
+	{
+		bool debugBreak = true;
+	}
 	CMath::TMATRIX tTransformMatrix = m_pcTransform->GetMatrix();
 
-	CMath::TVECTOR3 AA = CMath::Vector3Transform(m_tExtent, tTransformMatrix) + m_tCenter;
-	CMath::TVECTOR3 BA = CMath::Vector3Transform(CMath::TVECTOR3{ -m_tExtent.x,  m_tExtent.y,   m_tExtent.z }, tTransformMatrix) + m_tCenter;
-	CMath::TVECTOR3 CA = CMath::Vector3Transform(CMath::TVECTOR3{ -m_tExtent.x,  m_tExtent.y,  -m_tExtent.z }, tTransformMatrix) + m_tCenter;
-	CMath::TVECTOR3 DA = CMath::Vector3Transform(CMath::TVECTOR3{ m_tExtent.x,  m_tExtent.y,  -m_tExtent.z }, tTransformMatrix) + m_tCenter;
-	CMath::TVECTOR3 AB = CMath::Vector3Transform(CMath::TVECTOR3{ m_tExtent.x, -m_tExtent.y,   m_tExtent.z }, tTransformMatrix) + m_tCenter;
-	CMath::TVECTOR3 BB = CMath::Vector3Transform(CMath::TVECTOR3{ -m_tExtent.x, -m_tExtent.y,   m_tExtent.z }, tTransformMatrix) + m_tCenter;
-	CMath::TVECTOR3 CB = CMath::Vector3Transform(CMath::TVECTOR3{ -m_tExtent.x, -m_tExtent.y,  -m_tExtent.z }, tTransformMatrix) + m_tCenter;
-	CMath::TVECTOR3 DB = CMath::Vector3Transform(CMath::TVECTOR3{ m_tExtent.x, -m_tExtent.y,  -m_tExtent.z }, tTransformMatrix) + m_tCenter;
+	CMath::TVECTOR3 tLocalOffset = GetLocalCenter();
+
+	CMath::TVECTOR3 AA = CMath::Point3Transform(m_tExtent, tTransformMatrix) + tLocalOffset;
+	CMath::TVECTOR3 BA = CMath::Point3Transform(CMath::TVECTOR3{ -m_tExtent.x,  m_tExtent.y,   m_tExtent.z }, tTransformMatrix) + tLocalOffset;
+	CMath::TVECTOR3 CA = CMath::Point3Transform(CMath::TVECTOR3{ -m_tExtent.x,  m_tExtent.y,  -m_tExtent.z }, tTransformMatrix) + tLocalOffset;
+	CMath::TVECTOR3 DA = CMath::Point3Transform(CMath::TVECTOR3{ m_tExtent.x,  m_tExtent.y,  -m_tExtent.z }, tTransformMatrix) + tLocalOffset;
+	CMath::TVECTOR3 AB = CMath::Point3Transform(CMath::TVECTOR3{ m_tExtent.x, -m_tExtent.y,   m_tExtent.z }, tTransformMatrix) + tLocalOffset;
+	CMath::TVECTOR3 BB = CMath::Point3Transform(CMath::TVECTOR3{ -m_tExtent.x, -m_tExtent.y,   m_tExtent.z }, tTransformMatrix) + tLocalOffset;
+	CMath::TVECTOR3 CB = CMath::Point3Transform(CMath::TVECTOR3{ -m_tExtent.x, -m_tExtent.y,  -m_tExtent.z }, tTransformMatrix) + tLocalOffset;
+	CMath::TVECTOR3 DB = CMath::Point3Transform(CMath::TVECTOR3{ m_tExtent.x, -m_tExtent.y,  -m_tExtent.z }, tTransformMatrix) + tLocalOffset;
 
 	//Top square 
 	TDebugLineMessage vertex = TDebugLineMessage(AA, CMath::TVECTOR4{ 0, 1, 0, 1 });

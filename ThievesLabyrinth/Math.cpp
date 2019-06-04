@@ -1,7 +1,6 @@
 #include "Math.h"
 #include <math.h>
-
-#include <DirectXMath.h>
+#include <string>
 
 CMath::TVECTOR3::TVECTOR3()
 {
@@ -33,12 +32,11 @@ CMath::TVECTOR3 CMath::TVECTOR3::operator-(const TVECTOR3 V)
 	return result;
 }
 
-CMath::TVECTOR3 & CMath::TVECTOR3::operator-()
+CMath::TVECTOR3 CMath::TVECTOR3::operator-()
 {
-	x = -x;
-	y = -y;
-	z = -z;
-	return *this;
+	TVECTOR3 tResult = *this;
+
+	return tResult * -1.0f;
 }
 
 CMath::TVECTOR3 & CMath::TVECTOR3::operator+=(const TVECTOR3 V)
@@ -141,7 +139,7 @@ CMath::TVECTOR3 & CMath::TVECTOR3::operator=(TVECTOR4 V)
 	return *this;
 }
 
-bool CMath::TVECTOR3::operator==(TVECTOR3 V)
+bool CMath::TVECTOR3::operator==(TVECTOR3 V) const
 {
 	if (IsEqual(x, V.x) &&
 		IsEqual(y, V.y) &&
@@ -152,14 +150,85 @@ bool CMath::TVECTOR3::operator==(TVECTOR3 V)
 	return false;
 }
 
+bool CMath::TVECTOR3::operator!=(TVECTOR3 V) const
+{
+	return !( *this == V );
+} 
+
 bool CMath::IsEqual(float fA, float fB)
 {
 	return fabsf(fA - fB) < EPSILON;
 }
 
+bool CMath::IsEqual(TVECTOR2 V1, TVECTOR2 V2)
+{
+	if (IsEqual(V1.x,V2.x) &&
+		IsEqual(V1.y, V2.y))
+	{
+		return true;
+	}
+	return false;
+}
+
+bool CMath::IsEqual(TVECTOR3 V1, TVECTOR3 V2)
+{
+	if (CMath::IsEqual(V1.x, V2.x) &&
+		CMath::IsEqual(V1.y, V2.y) && 
+		CMath::IsEqual(V1.z, V2.z))
+	{
+		return true;
+	}
+	return false;
+}
+
+bool CMath::IsEqual(TVECTOR4 V1, TVECTOR4 V2)
+{
+	if (CMath::IsEqual(V1.x, V2.x) &&
+		CMath::IsEqual(V1.y, V2.y) &&
+		CMath::IsEqual(V1.z, V2.z) &&
+		CMath::IsEqual(V1.w, V2.w))
+	{
+		return true;
+	}
+	return false;
+}
+
 bool CMath::IsZero(float fA)
 {
 	return fabsf(fA) < EPSILON;
+}
+
+bool CMath::IsZero(TVECTOR2 V)
+{
+	if (IsZero(V.x) &&
+		IsZero(V.y))
+	{
+		return true;
+	}
+	return false;
+}
+
+bool CMath::IsZero(TVECTOR3 V)
+{
+	if (IsZero(V.x) && 
+		IsZero(V.y) &&
+		IsZero(V.z))
+	{
+		return true;
+	}
+	return false;
+}
+
+bool CMath::IsZero(TVECTOR4 V)
+{
+	if (IsZero(V.x) &&
+		IsZero(V.y) &&
+		IsZero(V.z) &&
+		IsZero(V.w))
+	{
+		return true;
+	}
+	return false;
 }
 
 CMath::TVECTOR3 CMath::Vector3Normalize(TVECTOR3 V)
@@ -407,6 +476,16 @@ CMath::TVECTOR4 & CMath::TVECTOR4::operator=(TVECTOR3 V)
 	return *this;
 }
 
+bool CMath::TVECTOR4::operator==(TVECTOR4 V) const
+{
+	return IsEqual( *this, V );
+}
+
+bool CMath::TVECTOR4::operator!=(TVECTOR4 V) const
+{
+	return !( *this == V );
+}
+
 CMath::TVECTOR4 CMath::Vector4Normalize(TVECTOR4 V)
 {
 	float dot = Vector4Magnitude(V);
@@ -526,16 +605,15 @@ CMath::TMATRIX & CMath::TMATRIX::operator-=(const TMATRIX M)
 
 CMath::TMATRIX & CMath::TMATRIX::operator*=(const TMATRIX M)
 {
-//	*this = *(CMath::TMATRIX*)&DirectX::XMMatrixMultiply(*(DirectX::XMMATRIX*)&this->mData, *(DirectX::XMMATRIX*)&M);
-	//areturn *this;
+	CMath::TMATRIX tResult;
 	for (int row = 0; row < 16; row += 4)
 	{
 		for (int col = 0; col < 4; col++)
 		{
-			mData[col + row] = mData[row] * M.mData[col] + mData[row + 1] * M.mData[col + 4] + mData[row + 2] * M.mData[col + 8] + mData[row + 3] * M.mData[col + 12];
+			tResult.mData[col + row] = mData[row] * M.mData[col] + mData[row + 1] * M.mData[col + 4] + mData[row + 2] * M.mData[col + 8] + mData[row + 3] * M.mData[col + 12];
 		}
 	}
-	*this = *this * M;
+	*this = tResult;
 	return *this;
 }
 
@@ -571,6 +649,18 @@ CMath::TMATRIX & CMath::TMATRIX::operator=(const TMATRIX M)
 	return *this;
 }
 
+bool CMath::TMATRIX::operator==(const TMATRIX M) const
+{
+	if (r[0] == M.r[0] &&
+		r[1] == M.r[1] &&
+		r[2] == M.r[2] &&
+		r[3] == M.r[3])
+	{
+		return true;
+	}
+	return false;
+}
+
 float CMath::MatrixDeterminant(TMATRIX M)
 {
 	return
@@ -583,7 +673,7 @@ float CMath::MatrixDeterminant(TMATRIX M)
 
 float CMath::MatrixDeterminant(float e_11, float e_12, float e_13, float e_21, float e_22, float e_23, float e_31, float e_32, float e_33)
 {
-	return e_11 * (e_22 * e_33 - e_32 * e_23) - e_12 * (e_21 * e_33 - e_31 * e_23) + e_13 * (e_21 * e_32 - e_31 * e_22);;
+	return e_11 * (e_22 * e_33 - e_32 * e_23) - e_12 * (e_21 * e_33 - e_31 * e_23) + e_13 * (e_21 * e_32 - e_31 * e_22);
 }
 
 CMath::TMATRIX CMath::MatrixTranspose(TMATRIX M)
@@ -730,7 +820,7 @@ CMath::TMATRIX CMath::MatrixRotationQuaternion(TVECTOR4 V)
 #define REALQUATERNION
 #ifdef  REALQUATERNION
 	//CHANGED
-	CMath::TVECTOR4 v = V; CMath::Vector4Normalize(V);
+	CMath::TVECTOR4 v = V;
 
 	float x = v.x, y = v.y, z = v.z, w = v.w;
 	float x2 = x + x, y2 = y + y, z2 = z + z;
@@ -755,7 +845,7 @@ CMath::TMATRIX CMath::MatrixRotationQuaternion(TVECTOR4 V)
 
 	result = CMath::MatrixTranspose(result);
 
-#elif !(REALQUATERNION) //  REALQUATERNION
+#else
 	float sqw = V.w*V.w;
 	float sqx = V.x*V.x;
 	float sqy = V.y*V.y;
@@ -799,6 +889,27 @@ CMath::TVECTOR4 CMath::QuaternionFromAxisAngle(TVECTOR3 axis, float degrees)
 	return TVECTOR4(x, y, z, w);
 }
 
+void CMath::toEulerAngle(const TVECTOR4 & q, float & roll, float & pitch, float & yaw)
+{
+	// roll (x-axis rotation)
+	float sinr_cosp = +2.0f * ( q.w * q.x + q.y * q.z );
+	float cosr_cosp = +1.0f - 2.0f * ( q.x * q.x + q.y * q.y );
+	roll = atan2(sinr_cosp, cosr_cosp);
+
+	// pitch (y-axis rotation)
+	float sinp = +2.0f * ( q.w * q.y - q.z * q.x );
+	if(fabs(sinp) >= 1)
+		pitch = copysignf(PI / 2, sinp); // use 90 degrees if out of range
+	else
+		pitch = asinf(sinp);
+
+	// yaw (z-axis rotation)
+	float siny_cosp = +2.0f * ( q.w * q.z + q.x * q.y );
+	float cosy_cosp = +1.0f - 2.0f * ( q.y * q.y + q.z * q.z);
+	yaw = atan2(siny_cosp, cosy_cosp);
+
+}
+
 CMath::TVECTOR4 CMath::QuaternionMultiply(TVECTOR4 a, TVECTOR4 b)
 {
 	TVECTOR4 result;
@@ -815,9 +926,20 @@ CMath::TVECTOR3 CMath::Vector3Transform(TVECTOR3 tVector, TMATRIX tMatrix)
 {
 	TVECTOR3 tResult;
 
-	tResult.x = tVector.x * tMatrix.r[0].mData[0] + tVector.y * tMatrix.r[1].mData[0] + tVector.z * tMatrix.r[2].mData[0] + tMatrix.r[3].mData[0];
-	tResult.y = tVector.x * tMatrix.r[0].mData[1] + tVector.y * tMatrix.r[1].mData[1] + tVector.z * tMatrix.r[2].mData[1] + tMatrix.r[3].mData[1];
-	tResult.z = tVector.x * tMatrix.r[0].mData[2] + tVector.y * tMatrix.r[1].mData[2] + tVector.z * tMatrix.r[2].mData[2] + tMatrix.r[3].mData[2];
+	tResult.x = tVector.x * tMatrix.r[0].mData[0] + tVector.y * tMatrix.r[1].mData[0] + tVector.z * tMatrix.r[2].mData[0];
+	tResult.y = tVector.x * tMatrix.r[0].mData[1] + tVector.y * tMatrix.r[1].mData[1] + tVector.z * tMatrix.r[2].mData[1];
+	tResult.z = tVector.x * tMatrix.r[0].mData[2] + tVector.y * tMatrix.r[1].mData[2] + tVector.z * tMatrix.r[2].mData[2];
+
+	return tResult;
+}
+
+CMath::TVECTOR3 CMath::Point3Transform(TVECTOR3 tPoint, TMATRIX tMatrix)
+{
+	TVECTOR3 tResult;
+
+	tResult.x = tPoint.x * tMatrix.r[0].mData[0] + tPoint.y * tMatrix.r[1].mData[0] + tPoint.z * tMatrix.r[2].mData[0] + tMatrix.r[3].mData[0];
+	tResult.y = tPoint.x * tMatrix.r[0].mData[1] + tPoint.y * tMatrix.r[1].mData[1] + tPoint.z * tMatrix.r[2].mData[1] + tMatrix.r[3].mData[1];
+	tResult.z = tPoint.x * tMatrix.r[0].mData[2] + tPoint.y * tMatrix.r[1].mData[2] + tPoint.z * tMatrix.r[2].mData[2] + tMatrix.r[3].mData[2];
 
 	return tResult;
 }
@@ -836,21 +958,24 @@ CMath::TVECTOR4 CMath::Vector4Transform(TVECTOR4 tVector, TMATRIX tMatrix)
 
 void CMath::MatrixDecompose(CMath::TVECTOR3 * vOutScale, CMath::TVECTOR4 * vOutRotationQuat, CMath::TVECTOR3 * vOutPosition, const CMath::TMATRIX M)
 {
+	CMath::TVECTOR3 vPos, vScale;
+	vPos = *(CMath::TVECTOR3*)&M.r[3];
 	if (vOutPosition != nullptr)
 	{
-		vOutPosition[0] = *(CMath::TVECTOR3*)&M.r[3];
+		vOutPosition[0] = vPos;
 	}
 
+	vScale.x = CMath::Vector3Magnitude({ M.r[0].x, M.r[0].y, M.r[0].z });
+	vScale.y = CMath::Vector3Magnitude({ M.r[1].x, M.r[1].y, M.r[1].z });
+	vScale.z = CMath::Vector3Magnitude({ M.r[2].x, M.r[2].y, M.r[2].z });
 	if (vOutScale != nullptr)
 	{
-		vOutScale[0].x = CMath::Vector3Magnitude({ M.r[0].x, M.r[1].x, M.r[2].x });
-		vOutScale[0].y = CMath::Vector3Magnitude({ M.r[0].y, M.r[1].y, M.r[2].y });
-		vOutScale[0].z = CMath::Vector3Magnitude({ M.r[0].z, M.r[1].z, M.r[2].z });
+		vOutScale[0] = vScale;
 	}
 
 	if (vOutRotationQuat != nullptr)
 	{
-		CMath::TMATRIX tTransp = CMath::MatrixTranspose(M);
+		CMath::TMATRIX tTransp = CMath::MatrixScaleFromVector({ 1 / vScale.x, 1 / vScale.y, 1 / vScale.z }) * CMath::MatrixTranspose(M);
 		float tr = tTransp.r[0].x + tTransp.r[1].y + tTransp.r[2].z;
 
 		if (tr > 0)
@@ -892,6 +1017,11 @@ void CMath::MatrixDecompose(CMath::TVECTOR3 * vOutScale, CMath::TVECTOR4 * vOutR
 
 }
 
+float CMath::RandomFloat(float min, float max)
+{
+	return min +  ( (float)rand() / (float)RAND_MAX * (max - min)) ;
+}
+
 CMath::TVECTOR2::TVECTOR2()
 {
 	x = y = 0;
@@ -905,6 +1035,24 @@ CMath::TVECTOR2::TVECTOR2(float fx, float fy)
 
 std::ostream & operator<<(std::ostream & os, const CMath::TVECTOR2 V)
 {
-	// TODO: insert return statement here
-	return os << V.x  << ", " << V.y;
+	return os << std::to_string(V.x)  << ", " << std::to_string(V.y);
+}
+
+std::ostream & operator<<(std::ostream & os, const CMath::TVECTOR3 V)
+{
+	return os << std::to_string(V.x) << ", " << std::to_string(V.y) << ", " << std::to_string(V.z);
+}
+
+std::ostream & operator<<(std::ostream & os, const CMath::TVECTOR4 V)
+{
+	return os << std::to_string(V.x) << ", " << std::to_string(V.y) << ", " << std::to_string(V.z) << ", " << std::to_string(V.w);
+}
+
+std::ostream & operator<<(std::ostream & os, const CMath::TMATRIX M)
+{
+	return os << "\n " <<
+		M.r[0] << "\n " <<
+		M.r[1] << "\n " <<
+		M.r[2] << "\n " <<
+		M.r[3] << '\n';
 }

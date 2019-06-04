@@ -12,7 +12,7 @@ struct Spot
 
 class CLevel
 {
-private:
+private: 
 
 	static std::vector<CRoomEntity*> m_pcRooms;
 	
@@ -25,7 +25,9 @@ private:
 	int nstart = 0;
 
 	
-	
+
+	static void UpdateLights(CRoomEntity* pcRoom);
+
 public:
 	
 	static CRoomEntity* m_pcCurrentRoom;
@@ -39,9 +41,11 @@ public:
 
 	static void SetDoorsTrue(CRoomEntity* room);
 
-	static void RandomizeRoomEnemies(std::vector<CEnemyEntity*> pcEnemies);
+	static void RandomizeRoomEnemies(std::vector<CEnemyEntity*> pcEnemies, int floor);
 
 	static int GetTotalEnemyCount();
+
+	static int Floor;
 
 	static int nTotalEnemyCount;
 

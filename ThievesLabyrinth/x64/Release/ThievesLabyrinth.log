@@ -1,0 +1,106 @@
+﻿  compilation header save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\ThievesLabyrinth\DebugPS.csh
+  compilation object save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\x64\Release\DebugPS.cso
+  compilation header save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\ThievesLabyrinth\DefaultPS.csh
+  compilation object save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\x64\Release\DefaultPS.cso
+  compilation header save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\ThievesLabyrinth\DebugVS.csh
+  compilation object save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\x64\Release\DebugVS.cso
+  compilation header save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\ThievesLabyrinth\DefaultVS.csh
+  compilation object save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\x64\Release\DefaultVS.cso
+  compilation header save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\ThievesLabyrinth\AOEAttackPS.csh
+  compilation object save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\x64\Release\AOEAttackPS.cso
+  compilation header save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\ThievesLabyrinth\BrightnessPS.csh
+  compilation object save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\x64\Release\BrightnessPS.cso
+  compilation header save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\ThievesLabyrinth\DissolvePS.csh
+  compilation object save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\x64\Release\DissolvePS.cso
+  compilation header save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\ThievesLabyrinth\FadeOutPS.csh
+  compilation object save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\x64\Release\FadeOutPS.cso
+  compilation header save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\ThievesLabyrinth\FirewallPS.csh
+  compilation object save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\x64\Release\FirewallPS.cso
+  compilation header save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\ThievesLabyrinth\FlashPS.csh
+  compilation object save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\x64\Release\FlashPS.cso
+C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\ThievesLabyrinth\FullscreenQuadVS.hlsl(47,2): warning X4000: use of potentially uninitialized variable (output)
+  
+  compilation header save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\ThievesLabyrinth\FullscreenQuadVS.csh
+  compilation object save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\x64\Release\FullscreenQuadVS.cso
+  compilation header save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\ThievesLabyrinth\ParticlesPS.csh
+  compilation object save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\x64\Release\ParticlesPS.cso
+  compilation header save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\ThievesLabyrinth\SeeThroughPS.csh
+  compilation object save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\x64\Release\SeeThroughPS.csh
+  compilation header save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\ThievesLabyrinth\SkinnedVS.csh
+  compilation object save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\x64\Release\SkinnedVS.cso
+  compilation header save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\ThievesLabyrinth\SolidColorPS.csh
+  compilation object save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\x64\Release\SolidColorPS.cso
+  compilation header save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\ThievesLabyrinth\VerticalBlurPS.csh
+  compilation object save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\x64\Release\VerticalBlurPS.cso
+  compilation header save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\ThievesLabyrinth\HorizontalBlurPS.csh
+  compilation object save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\x64\Release\HorizontalBlurPS.cso
+  compilation header save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\ThievesLabyrinth\Pass2DPS.csh
+  compilation object save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\x64\Release\Pass2DPS.cso
+  compilation header save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\ThievesLabyrinth\TorchFirePS.csh
+  compilation object save succeeded; see C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\x64\Release\TorchFirePS.cso
+  AIManager.cpp
+  AnimationManager.cpp
+  AnimatorComponent.cpp
+  ArcherController.cpp
+  CapsleCollider.cpp
+  ChickenController.cpp
+  DDSTextureLoader.cpp
+  HUD.cpp
+  IndicatorController.cpp
+  Inventory.cpp
+  KnightController.cpp
+  LightComponent.cpp
+  ParticleEffect.cpp
+  PathAgent.cpp
+  PathSurface.cpp
+  ProjectileComponent.cpp
+  BoxCollider.cpp
+  MageController.cpp
+  Button.cpp
+  AudioManager.cpp
+  Compiling...
+  CameraController.cpp
+  DebugManager.cpp
+  Collider.cpp
+  Component.cpp
+  ComponentManager.cpp
+c:\users\danie\onedrive\escritorio\thieveslabyrinth\thieveslabyrinth\componentmanager.cpp(43): warning C4316: 'CTransform': object allocated on the heap may not be aligned 64
+  EnemyController.cpp
+  Entity.cpp
+  EntityManager.cpp
+  EventManager.cpp
+  GameLogic.cpp
+  GUIManager.cpp
+  GAudio.cpp
+c:\users\danie\onedrive\escritorio\thieveslabyrinth\thieveslabyrinth\gaudiowin.hpp(2): warning C4067: unexpected tokens following preprocessor directive - expected a newline
+c:\users\danie\onedrive\escritorio\thieveslabyrinth\thieveslabyrinth\gaudiowin.hpp(765): warning C4101: 'e': unreferenced local variable
+c:\users\danie\onedrive\escritorio\thieveslabyrinth\thieveslabyrinth\gaudiowin.hpp(839): warning C4101: 'e': unreferenced local variable
+c:\users\danie\onedrive\escritorio\thieveslabyrinth\thieveslabyrinth\gaudiowin.hpp(1153): warning C4101: 'e': unreferenced local variable
+c:\users\danie\onedrive\escritorio\thieveslabyrinth\thieveslabyrinth\gaudiowin.hpp(1228): warning C4101: 'e': unreferenced local variable
+  InputManager.cpp
+  Level.cpp
+  LevelManager.cpp
+  Math.cpp
+  MemoryManager.cpp
+  Menu.cpp
+  MeshRenderer.cpp
+  FireDemonController.cpp
+  Compiling...
+  Pool.cpp
+  RenderManager.cpp
+  PhysicsManager.cpp
+  Rigidbody.cpp
+  Slider.cpp
+  SpikeTrapController.cpp
+  Stats.cpp
+  System.cpp
+  Time.cpp
+  Transform.cpp
+  VikingController.cpp
+  WICTextureLoader.cpp
+  WinMain.cpp
+  Generating code
+c:\users\danie\onedrive\escritorio\thieveslabyrinth\thieveslabyrinth\gaudiowin.hpp(1426): warning C4715: 'WindowAppMusic::Stream': not all control paths return a value
+  All 6944 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  Finished generating code
+  ThievesLabyrinth.vcxproj -> C:\Users\danie\OneDrive\Escritorio\ThievesLabyrinth\x64\Release\ThievesLabyrinth.exe

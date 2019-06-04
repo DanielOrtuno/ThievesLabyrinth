@@ -1,6 +1,6 @@
 #include "AnimationManager.h"
 //#include <iostream>
-//#include "EnumTypes.h"
+#include "EnumTypes.h"
 #include "AnimatorComponent.h"
 #include "Time.h"
 //#include "InputManager.h"
@@ -77,7 +77,17 @@ CAnimatorManager::CAnimatorManager(ID3D11Device* pd3dDevice)
 	m_pcAnimators[eAnimator::VIKING]->LoadAnimator("..//Assets//Animations//Enemies//Viking//VikingData.bin");
 	m_pcAnimators[eAnimator::VIKING]->LoadAnimationTexture(pd3dDevice, L"..//Assets//Animations//Enemies//Viking//VikingPositionTexture.DDS",
 																	   L"..//Assets//Animations//Enemies//Viking//VikingRotationTexture.DDS");
-}
+
+	m_pcAnimators[eAnimator::ARCHER] = new CAnimator();
+	m_pcAnimators[eAnimator::ARCHER]->LoadAnimator("..//Assets//Animations//Enemies//Archer//ArcherData.bin");
+	m_pcAnimators[eAnimator::ARCHER]->LoadAnimationTexture(pd3dDevice, L"..//Assets//Animations//Enemies//Archer//ArcherPositionTexture.DDS",
+																	   L"..//Assets//Animations//Enemies//Archer//ArcherRotationTexture.DDS");
+
+	m_pcAnimators[eAnimator::KNIGHT] = new CAnimator();
+	m_pcAnimators[eAnimator::KNIGHT]->LoadAnimator("..//Assets//Animations//Enemies//Knight//KnightData.bin");
+	m_pcAnimators[eAnimator::KNIGHT]->LoadAnimationTexture(pd3dDevice, L"..//Assets//Animations//Enemies//Knight//KnightPositionTexture.DDS",
+																	   L"..//Assets//Animations//Enemies//Knight//KnightRotationTexture.DDS");
+}				
 
 CAnimatorManager::~CAnimatorManager()
 {

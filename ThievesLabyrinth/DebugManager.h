@@ -1,4 +1,5 @@
 #pragma once
+#define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <Dbghelp.h>
 #include <time.h>
@@ -7,6 +8,8 @@
 
 #include <vector>
 
+#define MAX_DEBUG_LINES 10000
+
 struct TDebugMessage;
 struct TDebugLineMessage;
 
@@ -14,12 +17,6 @@ class CDebugManager : public ISystem
 {
 public:
 
-	
-	struct TDebugVertex
-	{
-		CMath::TVECTOR3 tPos;
-		CMath::TVECTOR4 tColor;
-	};
 
 	static void DebugLog(TDebugMessage tMessage);
 
@@ -37,6 +34,6 @@ private:
 
 	static int			m_nLineCount;
 	
-	static TDebugVertex	m_tDebugLines[100024];
+	static TDebugLineMessage m_tDebugLines[MAX_DEBUG_LINES];
 };
 

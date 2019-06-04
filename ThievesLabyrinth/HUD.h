@@ -1,11 +1,14 @@
 #pragma once
 #include <d2d1_3.h>
 #include <d3d11.h>
+#include <dwrite_3.h>
 #include "Menu.h"
 #include "Level.h"
 #include "Math.h"
+#include "Entity.h"
 
 #pragma comment(lib, "d2d1.lib")
+#pragma comment(lib, "dwrite.lib")
 
 class CHUD
 {
@@ -13,17 +16,23 @@ class CHUD
 	float m_fCurrHealth, m_fMaxHealth, m_fCurrMana, m_fMaxMana;
 	CMath::TVECTOR3 m_fMaxTime;
 	CMath::TVECTOR3 m_fCurrTime;
+	CMath::TVECTOR3 m_fCurrBuffTime;
+	CMath::TVECTOR3 m_fMaxBuffTime;
 	float m_fWidth, m_fHeight;
-	int m_nCurrPass, m_nCurrActive;
+	CMath::TVECTOR2 m_tCurrPass;
+	int m_nCurrActive;
 	static int m_nCurrConsume;
 	static bool m_bChange;
-	bool m_bRenderMenu;
+	bool m_bRenderMenu, m_bDisplaySwap;
 	int* m_pnConsume;
 	size_t m_nEnemyCount;
 	CMenu* m_pcMenu;
 	double m_dTime;
 	std::vector<std::vector<Spot>> m_cMap;
 	std::vector<std::vector<D2D1_RECT_F>> m_rMap;
+	std::vector<D2D1_RECT_U> m_RectPos;
+	std::vector<D2D1_RECT_U> m_ButtonPos;
+	std::vector<std::wstring> m_ItemDescriptions;
 	ID2D1Bitmap1*	m_pd2dTempSprite, *m_pd2dInventorySprite;
 
 	////////////////
@@ -77,7 +86,8 @@ public:
 	// pd2dBrushie4: Brush used to show what rooms haven't been visited
 	// fWidth: Swapchain Width
 	// fHeight: Swapchain Height
-	void DrawInventory(ID2D1DeviceContext3* pd2dContext, ID2D1RenderTarget* pd2dRT, IDWriteTextFormat* pdxwTextFormat, IDWriteTextFormat* pdxwTitleFormat,
+	void DrawInventory(ID2D1DeviceContext3* pd2dContext, ID2D1RenderTarget* pd2dRT, 
+		IDWriteFactory* pdwWriteFactory, IDWriteTextFormat* pdxwTextFormat, IDWriteTextFormat* pdxwTitleFormat,
 		ID2D1SolidColorBrush* pd2dBrushie, ID2D1SolidColorBrush* pd2dBrushie2, ID2D1SolidColorBrush* pd2dBrushie3, ID2D1SolidColorBrush* pd2dBrushie4,
 		ID2D1SolidColorBrush* pd2dBrushie5, float fWidth, float fHeight);
 
@@ -107,8 +117,8 @@ public:
 	// pd2dBrushie: Brush used with the Render Target
 	// fWidth: Swapchain Width
 	// fHeight: Swapchain Height
-	void WriteHealthAndMana(ID2D1RenderTarget* pd2dRT, IDWriteTextFormat* pdxwTextFormat, IDWriteTextFormat* pdxwTitleFormat,
-							ID2D1SolidColorBrush* pd2dBrushie, float fWidth, float fHeight);
+	void WriteHealthAndMana(ID2D1RenderTarget* pd2dRT, IDWriteFactory* pdwWriteFactory, IDWriteTextFormat* pdxwTextFormat, IDWriteTextFormat* pdxwTitleFormat,
+							ID2D1SolidColorBrush* pd2dBrushie, float fWidth, float fHeight, bool bControls = false);
 
 	// Sets up the Minimap to be used in the Inventory Menu
 	// Called when the GUIManager wants to call it
@@ -118,6 +128,8 @@ public:
 	// Sets the timer to 5 seconds to display
 	// the game objective
 	void NewGame();
+
+	static IEntity* m_pcHoveredEntity;
 
 	~CHUD();
 };

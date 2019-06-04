@@ -1,10 +1,19 @@
 #include "MeshRenderer.h"
 #include "EnumTypes.h"
 
+#if _DEBUG
+#define _CRTDBG_MAP_ALLOC
+#include <stdlib.h>
+#include <crtdbg.h>
+#define new new( _CLIENT_BLOCK, __FILE__, __LINE__)
+#endif
+
 CMeshRenderer::CMeshRenderer(IEntity* pcOwner) : IComponent(pcOwner)
 {
 	m_nComponentType = eComponent::MESH_RENDERER;
 	m_pnTexture = nullptr;
+	m_bGlow = false;
+	m_vGlowColor = { 0, 0, 0, 0 };
 }
 
 int CMeshRenderer::GetVertexBuffer()
@@ -47,9 +56,21 @@ int CMeshRenderer::GetInputLayout()
 	return m_nInputLayout;
 }
 
+bool CMeshRenderer::IsGlowing()
+{
+	return m_bGlow;
+}
+
+CMath::TVECTOR4 CMeshRenderer::GetGlowColor()
+{
+	return m_vGlowColor;
+}
+
 void CMeshRenderer::SetVertexBuffer(int nBuffer)
 {
 	m_nVertices = nBuffer;
+	if (nBuffer != eVertexBuffer::DEBUG_LINES)
+		m_nIndices = nBuffer;
 }
 
 void CMeshRenderer::SetIndexBuffer(int nBuffer)
@@ -97,6 +118,17 @@ void CMeshRenderer::SetInputLayout(int nInputLayout)
 	m_nInputLayout = nInputLayout;
 }
 
+void CMeshRenderer::SetGlowEffect(bool bGlow)
+{
+	m_bGlow = bGlow;
+}
+
+void CMeshRenderer::SetGlowColor(CMath::TVECTOR4 vGlowColor)
+{
+	m_vGlowColor = vGlowColor;
+}
+
+
 CMeshRenderer & CMeshRenderer::operator=(CMeshRenderer & cCopy)
 {
 	SetVertexBuffer(cCopy.m_nVertices);
@@ -106,6 +138,8 @@ CMeshRenderer & CMeshRenderer::operator=(CMeshRenderer & cCopy)
 	SetSampler(cCopy.m_nSampler);
 	SetInputLayout(cCopy.m_nInputLayout);
 	SetTextureCount(cCopy.m_nTextureCount);
+	SetGlowEffect(cCopy.m_bGlow);
+	SetGlowColor(cCopy.m_vGlowColor);
 	for(int i = 0; i < m_nTextureCount; i++)
 	{
 		SetTexture(cCopy.m_pnTexture[i], i);

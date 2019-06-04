@@ -1,16 +1,23 @@
-//#include "Level.h"
 #include "LevelManager.h"
 #include "GUIManager.h"
 #include "BoxCollider.h"
 #include "CapsuleCollider.h"
-
+#include "ParticleEffect.h"
+#include "PathSurface.h"
 #include "Transform.h"
 #include "Entity.h"
+#include "MeshRenderer.h"
+#include "EnumTypes.h"
+#include "Stats.h"
 
 #include <time.h>
 #include <iostream>
 #include <vector>
 #include <list>
+
+int CLevel::Floor;
+
+#define	ROOMS rand() % 5
 
 std::vector<CRoomEntity*> CLevel::m_pcRooms;
 CRoomEntity* CLevel::m_pcCurrentRoom;
@@ -42,7 +49,7 @@ CLevel::CLevel()
 	}
 
 	cnTunnels.push_back(std::make_pair(nRows / 2, nColumns / 2));
-
+	
 	while (cnTunnels.size() > 0)
 	{
 		std::list < std::pair < int, int> >::iterator  cnBegin, cnEnd, cnTemp;
@@ -124,12 +131,7 @@ CLevel::CLevel()
 			else
 			{
 				cnTunnels.push_back(std::make_pair((*cnBegin).first, (*cnBegin).second));
-				// uncomment to make easier 
-				/*if (rand() % 2)
-				{
-					Tunnels.push_back(std::make_pair((*Begin).first, (*Begin).second));
-				}*/
-
+				
 				cnTunnels.push_back(std::make_pair((*cnBegin).first, (*cnBegin).second));
 
 				cbMaze[(*cnBegin).second][(*cnBegin).first].bRoom = true;
@@ -145,11 +147,12 @@ CLevel::CLevel()
 		{
 			if (cbMaze[y][x].bRoom == true)
 			{
-				CRoomEntity* room = (CRoomEntity*)CEntityManager::CloneEntity(CLevelManager::m_pRoomsType[rand() % 3]);
+				CRoomEntity* room = (CRoomEntity*)CEntityManager::CloneEntity(CLevelManager::m_pRoomsType[ROOMS]);
+	
 				room->SetActiveState(false);
 				room->Doors = false;
 				room->Entities = false;
-
+				
 				switch (rand() % 4)
 				{
 				case 1:
@@ -184,22 +187,15 @@ CLevel::CLevel()
 
 				room->GetComponent<CTransform>()->SetPosition(CMath::TVECTOR3((float)y * nWidth, 0, (float)x * nWidth));
 
-				
-
 				room->Visited = false;
 
 				m_pcRooms.push_back(room);
 			}
-			else
-			{
-				//Spawn wall prefab
-			}
-
-
 		}
 	}
-
-	for (int i = 0; i < m_pcRooms.size(); i++)
+	nTotalEnemyCount = 0;
+	int RoomSize = (int)m_pcRooms.size();
+	for (int i = 0; i < RoomSize; i++)
 	{
 		nTotalEnemyCount += m_pcRooms[i]->m_nEnemyCount;
 	}
@@ -254,65 +250,70 @@ CLevel::CLevel()
 				{
 					CurrentSpot = cbMaze[y][x];
 					m_pcStartRoom = cbMaze[y][x].Room;
+					m_pcCurrentRoom = m_pcStartRoom;
 					nstart++;
 				}
 
 				m_pcEndRoom = cbMaze[y][x].Room;
 
 			}
-			else
-			{
-
-			}
 		}
 	}
 
 	CGUIManager::SetMiniMap(cbMaze);
+	m_pcCurrentRoom->m_nEnemyCount = 0;
+	UpdateDoors(m_pcCurrentRoom);
 }
-
 
 CLevel::~CLevel()
 {
-	/*for (int i = 0; i < m_pcRooms.size(); i++)
+	int RoomSize = (int)m_pcRooms.size();
+	for (size_t i = 0; i <RoomSize; i++)
 	{
-		CEntityManager::AddEntityToDeletionQueue(m_pcRooms[i]);
-
-		for (int j = 0; j < m_pcRooms[i]->m_pcEnemies.size(); j++)
-		{
-			CEntityManager::AddEntityToDeletionQueue(m_pcRooms[i]->m_pcEnemies[j]);
-		}
-	}*/
-	CEntityManager::DeleteAllEntities();
-
-	for (int i = 0; i < nColumns; i++)
-	{
-		for (int j = 0; j < nRows; j++)
-		{
-			cbMaze[i][j].m_cNeighbors.clear();
-		}
+		m_pcRooms[i]->m_nEnemyCount = 0;
 	}
-	cbMaze.clear();
-	m_pcCurrentRoom = nullptr;
+
 	m_pcRooms.clear();
-
-	nEndX = 0;
-	nEndY = 0;
-	nstart = 0;
 	nTotalEnemyCount = 0;
-
 }
 
 void CLevel::Update(CRoomEntity* Room)
 {
 	m_pcCurrentRoom = Room;
 	m_pcCurrentRoom->Visited = true;
-	for (int i = 0; i < Room->m_pcNeighbors.size(); i++)
+
+	for (int i = 0; i < Room->m_pcTraps.size(); i++)
+	{
+		Room->m_pcTraps[i]->SetActiveState(true);
+	}
+
+	for(CEnemyEntity* pcEnemy : Room->m_pcEnemies) 
+	{
+		CParticleEmitter* pcEmitter = pcEnemy->GetComponent<CParticleEmitter>();
+
+		if(pcEmitter)
+		{
+			pcEmitter->RefreshEmitterSettings();
+		}
+	}	
+
+	int NeighborsSize = (int)Room->m_pcNeighbors.size();
+
+	for (int i = 0; i < NeighborsSize; i++)
 	{
 		Room->m_pcNeighbors[i]->SpawnDoors();
 		Room->m_pcNeighbors[i]->SpawnEntities();
+
+		for (int j = 0; j < Room->m_pcNeighbors[i]->m_pcTraps.size(); j++)
+		{
+			Room->m_pcNeighbors[i]->m_pcTraps[j]->SetActiveState(false);
+		}
+		
+		UpdateLights(Room->m_pcNeighbors[i]);
 	}
 
-
+	UpdateLights(Room);
+	
 	if (Room->m_nEnemyCount != 0)
 	{
 		if (Room->Right == true)
@@ -356,67 +357,130 @@ void CLevel::Update(CRoomEntity* Room)
 	}
 
 	nTotalEnemyCount = 0;
-	for (int i = 0; i < m_pcRooms.size(); i++)
+	int RoomSize = (int)m_pcRooms.size();
+	for (int i = 0; i < RoomSize; i++)
 	{
 		nTotalEnemyCount += m_pcRooms[i]->m_nEnemyCount;
 	}
-
 }
 
 void CLevel::UpdateDoors(CRoomEntity* Room)
 {
-	if (Room->m_nEnemyCount == 0)
+	if (Room->m_nEnemyCount <= 0)
 	{
-		CEventManager::SendDebugMessage(TDebugMessage("Doors Open"));
+		CEventManager::SendAudioMessage(TAudioMessage(true, eAudio::SFX, eSFX::DOOR_OPEN));
+		int NeighborsSize = (int)Room->m_pcNeighbors.size();
+		for (size_t i = 0; i < NeighborsSize; i++)
+		{
+			int DoorSize = (int)Room->m_pcNeighbors[i]->m_pcDoors.size();
+			for (size_t j = 0; j < DoorSize; j++)
+			{
+				if (Room->m_pcNeighbors[i]->Right == true)
+				{
+					Room->m_pcNeighbors[i]->m_pcDoors[2]->GetComponent<CBoxCollider>()->SetTrigger(true);
+					Room->m_pcNeighbors[i]->m_pcDoors[2]->GetComponent<CMeshRenderer>()->SetVertexBuffer(eVertexBuffer::OPENDOOR);
+				}
+				if (Room->m_pcNeighbors[i]->Left == true)
+				{
+					Room->m_pcNeighbors[i]->m_pcDoors[3]->GetComponent<CBoxCollider>()->SetTrigger(true);
+					Room->m_pcNeighbors[i]->m_pcDoors[3]->GetComponent<CMeshRenderer>()->SetVertexBuffer(eVertexBuffer::OPENDOOR);
+				}
+				if (Room->m_pcNeighbors[i]->Top == true)
+				{
+					Room->m_pcNeighbors[i]->m_pcDoors[1]->GetComponent<CBoxCollider>()->SetTrigger(true);
+					Room->m_pcNeighbors[i]->m_pcDoors[1]->GetComponent<CMeshRenderer>()->SetVertexBuffer(eVertexBuffer::OPENDOOR);
+				}
+				if (Room->m_pcNeighbors[i]->Bottom == true)
+				{
+					Room->m_pcNeighbors[i]->m_pcDoors[0]->GetComponent<CBoxCollider>()->SetTrigger(true);
+					Room->m_pcNeighbors[i]->m_pcDoors[0]->GetComponent<CMeshRenderer>()->SetVertexBuffer(eVertexBuffer::OPENDOOR);
+				}
+			}
+		}
 
 		if (Room->Right == true)
 		{
 			Room->m_pcDoors[2]->GetComponent<CBoxCollider>()->SetTrigger(true);
+			Room->m_pcDoors[2]->GetComponent<CMeshRenderer>()->SetVertexBuffer(eVertexBuffer::OPENDOOR);
 		}
 		if (Room->Left == true)
 		{
 			Room->m_pcDoors[3]->GetComponent<CBoxCollider>()->SetTrigger(true);
+			Room->m_pcDoors[3]->GetComponent<CMeshRenderer>()->SetVertexBuffer(eVertexBuffer::OPENDOOR);
 		}
 		if (Room->Top == true)
 		{
 			Room->m_pcDoors[1]->GetComponent<CBoxCollider>()->SetTrigger(true);
+			Room->m_pcDoors[1]->GetComponent<CMeshRenderer>()->SetVertexBuffer(eVertexBuffer::OPENDOOR);
 		}
 		if (Room->Bottom == true)
 		{
 			Room->m_pcDoors[0]->GetComponent<CBoxCollider>()->SetTrigger(true);
+			Room->m_pcDoors[0]->GetComponent<CMeshRenderer>()->SetVertexBuffer(eVertexBuffer::OPENDOOR);
 		}
 	}
 }
 
 void CLevel::SetDoorsTrue(CRoomEntity * room)
 {
-	
-	if (room->m_nEnemyCount != 0)
+	if (room->m_nEnemyCount > 0)
 	{
-		CEventManager::SendDebugMessage(TDebugMessage("Doors Closed"));
+		CEventManager::SendAudioMessage(TAudioMessage(true, eAudio::SFX, eSFX::DOOR_CLOSE));
+		int NeighborsSize = (int)room->m_pcNeighbors.size();
+		for (size_t i = 0; i < NeighborsSize ; i++)
+		{
+			int DoorSize = (int)room->m_pcNeighbors[i]->m_pcDoors.size();
+			for (size_t j = 0; j < DoorSize; j++)
+			{
+				if (room->m_pcNeighbors[i]->Right == true)
+				{
+					room->m_pcNeighbors[i]->m_pcDoors[2]->GetComponent<CBoxCollider>()->SetTrigger(false);
+					room->m_pcNeighbors[i]->m_pcDoors[2]->GetComponent<CMeshRenderer>()->SetVertexBuffer(eVertexBuffer::DOOR);
+				}
+				if (room->m_pcNeighbors[i]->Left == true)
+				{
+					room->m_pcNeighbors[i]->m_pcDoors[3]->GetComponent<CBoxCollider>()->SetTrigger(false);
+					room->m_pcNeighbors[i]->m_pcDoors[3]->GetComponent<CMeshRenderer>()->SetVertexBuffer(eVertexBuffer::DOOR);
+				}
+				if (room->m_pcNeighbors[i]->Top == true)
+				{
+					room->m_pcNeighbors[i]->m_pcDoors[1]->GetComponent<CBoxCollider>()->SetTrigger(false);
+					room->m_pcNeighbors[i]->m_pcDoors[1]->GetComponent<CMeshRenderer>()->SetVertexBuffer(eVertexBuffer::DOOR);
+				}
+				if (room->m_pcNeighbors[i]->Bottom == true)
+				{
+					room->m_pcNeighbors[i]->m_pcDoors[0]->GetComponent<CBoxCollider>()->SetTrigger(false);
+					room->m_pcNeighbors[i]->m_pcDoors[0]->GetComponent<CMeshRenderer>()->SetVertexBuffer(eVertexBuffer::DOOR);
+				}
+			}
+		}
 
 		if (room->Right == true)
 		{
 			room->m_pcDoors[2]->GetComponent<CBoxCollider>()->SetTrigger(false);
+			room->m_pcDoors[2]->GetComponent<CMeshRenderer>()->SetVertexBuffer(eVertexBuffer::DOOR);
 		}
 		if (room->Left == true)
 		{
 			room->m_pcDoors[3]->GetComponent<CBoxCollider>()->SetTrigger(false);
+			room->m_pcDoors[3]->GetComponent<CMeshRenderer>()->SetVertexBuffer(eVertexBuffer::DOOR);
 		}
 		if (room->Top == true)
 		{
 			room->m_pcDoors[1]->GetComponent<CBoxCollider>()->SetTrigger(false);
+			room->m_pcDoors[1]->GetComponent<CMeshRenderer>()->SetVertexBuffer(eVertexBuffer::DOOR);
 		}
 		if (room->Bottom == true)
 		{
 			room->m_pcDoors[0]->GetComponent<CBoxCollider>()->SetTrigger(false);
+			room->m_pcDoors[0]->GetComponent<CMeshRenderer>()->SetVertexBuffer(eVertexBuffer::DOOR);
 		}
 	}
 
 	
 }
 
-void CLevel::RandomizeRoomEnemies(std::vector<CEnemyEntity*> pcEnemies)
+void CLevel::RandomizeRoomEnemies(std::vector<CEnemyEntity*> pcEnemies, int floor)
 {
 	nTotalEnemyCount = 0;
 	size_t columns = cbMaze.size();
@@ -427,17 +491,91 @@ void CLevel::RandomizeRoomEnemies(std::vector<CEnemyEntity*> pcEnemies)
 		{
 			if (cbMaze[i][j].bRoom)
 			{
-				for (int k = 0; k < 4; k++)
+				int random = rand() % cbMaze[i][j].Room->m_pcSpawns.size();
+
+				float distance = CMath::Vector3Magnitude(m_pcStartRoom->GetComponent<CTransform>()->GetPosition() - cbMaze[i][j].Room->GetComponent<CTransform>()->GetPosition());
+
+				float roomsaway = distance / 100;
+
+				if (roomsaway > 9)
 				{
-					cbMaze[i][j].Room->m_pcEnemies.push_back((CEnemyEntity*)CEntityManager::CloneEntity(pcEnemies[rand() % pcEnemies.size()]));
-					cbMaze[i][j].Room->m_pcEnemies[k]->m_pcRoom = cbMaze[i][j].Room;
+					roomsaway = 9;
 				}
+
+				CStats* stats;
+				
+					for (int k = 0; k < roomsaway; k++)
+					{
+						cbMaze[i][j].Room->m_pcEnemies.push_back((CEnemyEntity*)CEntityManager::CloneEntity(pcEnemies[rand() % pcEnemies.size()]));
+
+						switch (floor)
+						{
+
+						case 2:
+						{
+							stats = (CStats*)cbMaze[i][j].Room->m_pcEnemies[k]->GetComponent<CStats>();
+							stats->SetBaseDamage(stats->GetBaseDamage() + 0.5f);
+							stats->SetMaxHP(stats->GetMaxHP() + 0.5f);
+							break;
+						}
+
+						case 3:
+						{
+							stats = (CStats*)cbMaze[i][j].Room->m_pcEnemies[k]->GetComponent<CStats>();
+							stats->SetBaseDamage(stats->GetBaseDamage() + 1);
+							stats->SetMaxHP(stats->GetMaxHP() + 1);
+							break;
+						}
+						case 4:
+						{
+							stats = (CStats*)cbMaze[i][j].Room->m_pcEnemies[k]->GetComponent<CStats>();
+							stats->SetBaseDamage(stats->GetBaseDamage() + 1.5f);
+							stats->SetMaxHP(stats->GetMaxHP() + 1.5f);
+							break;
+						}
+
+						case 5:
+						{
+							stats = (CStats*)cbMaze[i][j].Room->m_pcEnemies[k]->GetComponent<CStats>();
+							stats->SetBaseDamage(stats->GetBaseDamage() + 2);
+							stats->SetMaxHP(stats->GetMaxHP() + 2);
+							break;
+						}
+
+
+						default:
+							break;
+						}
+							
+						cbMaze[i][j].Room->m_pcEnemies[k]->m_pcRoom = cbMaze[i][j].Room;
+					}
+				
+
+				int size = (int)cbMaze[i][j].Room->m_pcEnemies.size();
+
+				if (size > (int)cbMaze[i][j].Room->m_pcSpawns.size())
+				{
+					size = (int)cbMaze[i][j].Room->m_pcSpawns.size();
+				}
+				
+				for (int k = 0; k < size; k++)
+				{
+					while (cbMaze[i][j].Room->m_pcSpawns[random]->Taken == true)
+					{
+						random = rand() % cbMaze[i][j].Room->m_pcSpawns.size();
+					}
+
+					cbMaze[i][j].Room->m_pcEnemies[k]->GetComponent<CTransform>()->SetPosition(cbMaze[i][j].Room->m_pcSpawns[rand() % cbMaze[i][j].Room->m_pcSpawns.size()]->GetComponent<CTransform>()->GetPosition());
+					cbMaze[i][j].Room->m_pcSpawns[random]->Taken = true;
+				}
+
+				for (int k = 0; k < 3; k++)
+				{
+					cbMaze[i][j].Room->m_pcTraps[k]->GetComponent<CTransform>()->SetPosition(cbMaze[i][j].Room->m_pcSpawns[rand() % cbMaze[i][j].Room->m_pcSpawns.size()]->GetComponent<CTransform>()->GetPosition());
+				}
+
 				cbMaze[i][j].Room->m_nEnemyCount = (int)cbMaze[i][j].Room->m_pcEnemies.size();
 				nTotalEnemyCount += cbMaze[i][j].Room->m_nEnemyCount;
-				cbMaze[i][j].Room->m_pcEnemies[0]->GetComponent<CTransform>()->SetPosition({ 20, 0, 10 });
-				cbMaze[i][j].Room->m_pcEnemies[1]->GetComponent<CTransform>()->SetPosition({ 10, 0, 10 });
-				cbMaze[i][j].Room->m_pcEnemies[2]->GetComponent<CTransform>()->SetPosition({ 15, 0, 10 });
-				cbMaze[i][j].Room->m_pcEnemies[3]->GetComponent<CTransform>()->SetPosition({ 20, 0, 20 });
 			}
 		}
 	}
@@ -447,14 +585,69 @@ void CLevel::RandomizeRoomEnemies(std::vector<CEnemyEntity*> pcEnemies)
 	CurrentSpot.Room->SpawnEntities();
 	CurrentSpot.Room->SpawnDoors();
 
-	for (int i = 0; i < CurrentSpot.Room->m_pcNeighbors.size(); i++)
+	for (int i = 0; i < (int)CurrentSpot.Room->m_pcNeighbors.size(); i++)
 	{
 		CurrentSpot.Room->m_pcNeighbors[i]->SpawnEntities();
 		CurrentSpot.Room->m_pcNeighbors[i]->SpawnDoors();
 	}
+
+	CLevel::Update(CurrentSpot.Room);
 }
 
 int CLevel::GetTotalEnemyCount()
 {
 	return nTotalEnemyCount;
+}
+
+void CLevel::UpdateLights(CRoomEntity * pcRoom)
+{
+	int LightsSize = (int)pcRoom->m_pcLights.size();
+	for (size_t i = 0; i < LightsSize; i++)
+	{
+		pcRoom->RemoveLight(pcRoom->m_pcLights[i]->GetComponent<CLightComponent>());
+	}
+
+	if (pcRoom->Right)
+	{
+		for (size_t i = 0; i < 2; i++)
+		{
+			pcRoom->m_pcLights[i]->SetActiveState(true);
+			pcRoom->m_pcLights[i]->GetComponent<CParticleEmitter>()->RefreshEmitterSettings();
+
+			pcRoom->AddLight(pcRoom->m_pcLights[i]->GetComponent<CLightComponent>());
+		}
+	}
+
+	if (pcRoom->Top)
+	{
+		for (size_t i = 2; i < 4; i++)
+		{
+			pcRoom->m_pcLights[i]->SetActiveState(true);
+			pcRoom->m_pcLights[i]->GetComponent<CParticleEmitter>()->RefreshEmitterSettings();
+
+			pcRoom->AddLight(pcRoom->m_pcLights[i]->GetComponent<CLightComponent>());
+		}
+	}
+
+	if (pcRoom->Left)
+	{
+		for (size_t i = 4; i < 6; i++)
+		{
+			pcRoom->m_pcLights[i]->SetActiveState(true);
+			pcRoom->m_pcLights[i]->GetComponent<CParticleEmitter>()->RefreshEmitterSettings();
+
+			pcRoom->AddLight(pcRoom->m_pcLights[i]->GetComponent<CLightComponent>());
+		}
+	}
+
+	if (pcRoom->Bottom)
+	{
+		for (size_t i = 6; i < 8; i++)
+		{
+			pcRoom->m_pcLights[i]->SetActiveState(true);
+			pcRoom->m_pcLights[i]->GetComponent<CParticleEmitter>()->RefreshEmitterSettings();
+
+			pcRoom->AddLight(pcRoom->m_pcLights[i]->GetComponent<CLightComponent>());
+		}
+	}
 }

@@ -1,32 +1,39 @@
 #pragma once
 #include "GAudio.h"
 #include "System.h"
+#include "EnumTypes.h"
 
 
 class CAudioManager : public ISystem
 {
-	
+	#define SOUND_INSTANCES 10
 
 	static GW::AUDIO::GAudio*	 m_pAudio;
-	static GW::AUDIO::GSound**	 m_cSoundList;
-	static GW::AUDIO::GMusic**	 m_cMusicList;
-	
-	static bool m_bMuted;
+	static GW::AUDIO::GSound*	 m_cSoundList[SOUND_INSTANCES][eSFX::COUNT];
+	static GW::AUDIO::GMusic*	 m_cMusicList[eMusic::COUNT];
+
 	static float m_nMusicVol, m_nSFXVol, m_nMasterVol;
+	static int nCurrentMusic;
+
+	bool m_pbPlayingSFX[SOUND_INSTANCES][eSFX::COUNT] = { false };
+	bool m_bPaused;
 
 public:
 	CAudioManager();
 	~CAudioManager();
 
+	//	Initializes all music and sound effects, should be called after eventmanager is created.
+	void Initialize();
+
+	static void ShutDown();
+
 	///////////////////////////////////////////////////////////////////
 	// AddMusic()	 
 	// in:	const char*, bool
 	// out: void
-
-	// adds music from passed in file path and adds it to a vector, loops with bool
+	// adds music from passed in file path and adds it to a vector, plays with bool
 	///////////////////////////////////////////////////////////////////
-
-	void AddMusic(const char*, int, bool = false);
+	void AddMusic(const char* _pchFilepath, int nMusicName, bool bPlay = false);
 
 	///////////////////////////////////////////////////////////////////
 	// AddSFX()	 
@@ -43,7 +50,6 @@ public:
 	// Changes music's vol from passed in float Value
 	///////////////////////////////////////////////////////////////////
 	static void ChangeMusicVol(float);
-
 
 	///////////////////////////////////////////////////////////////////
 	// ChangeSFXVol()	 
@@ -67,16 +73,31 @@ public:
 	// out: void
 	// Prases sound request and plays music/sound
 	///////////////////////////////////////////////////////////////////
-	static void ReceiveSoundRequest(bool bTrue, int nType, int nSFX = 0);
-
+	void ReceiveSoundRequest(bool bTrue, int nType, int nSFX = 0);
 
 	///////////////////////////////////////////////////////////////////
-	// ToggleMusic()	 
+	// ChangeCurrentMusic()	 
+	// in:	int
+	// out: void
+	// Changes the current music to the music passed in using eMusic
+	///////////////////////////////////////////////////////////////////
+	static void ChangeCurrentMusic(int nMusic);
+
+	///////////////////////////////////////////////////////////////////
+	// ReturnCurrentMusic()	 
+	// in:	void
+	// out: int
+	// returns the current music to using eMusic
+	///////////////////////////////////////////////////////////////////
+	int GetCurrentMusic();
+
+	///////////////////////////////////////////////////////////////////
+	// TogglePause()	 
 	// in:	void
 	// out: void
-	// Mutes and unmutes music
+	// Pauses/unpauses sfx
 	///////////////////////////////////////////////////////////////////
-	static void ToggleMusic();
+	void TogglePause();
 
 
 	static float GetMasterVol();

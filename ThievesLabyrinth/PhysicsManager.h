@@ -28,24 +28,19 @@ class CPlayerEntity;
 struct TRayHit
 {
 	IEntity* tEntity;
-	CMath::TVECTOR3 tCollisionPoint;
+	CMath::TVECTOR3 tEntryPoint;
+	CMath::TVECTOR3 tExitPoint;
 };
 
 class CEntityMask
 {
-private:
-	int mask;
-
 public:
-	CEntityMask() : mask(0) {}
-	CEntityMask(const int nEntityType);
-	CEntityMask(const int* nEntityTypes, int nCount);
+	int nValue;
 
-	CEntityMask operator +(const int nEntityType) const;
-	CEntityMask operator -(const int nEntityType) const;
-	void operator +=(const int nEntityType);
-	void operator -=(const int nEntityType);
-	int operator &(const int nMaskCheck) const;
+	CEntityMask() : nValue(0) {}
+	void Add(int nEntityType);
+	void Remove(int nEnityType);
+	void Invert();
 };
 
 class CPhysicsManager : public ISystem
@@ -99,19 +94,20 @@ public:
 
 	void Update(float fDeltaTime);
 
-	static bool Raycast(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirection, float fMaxDistance = std::numeric_limits<float>::infinity());
-	static bool Raycast(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirection, TRayHit& tRayHit, CEntityMask tMask = CEntityMask());
-	static bool Raycast(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirection, TRayHit& tRayHit, float fMaxDistance = std::numeric_limits<float>::infinity(), CEntityMask tMask = CEntityMask());
+	static bool Raycast(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirection, float fMaxDistance);
+	static bool Raycast(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirection, TRayHit& tRayHit, CEntityMask* cMask = nullptr);
+	static bool Raycast(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirection, TRayHit& tRayHit, float fMaxDistance, CEntityMask* cMask = nullptr);
 	static bool RaycastMouseToFloor(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirection, CMath::TVECTOR3& tFloorPosition);
+
+	static bool RayOverlap(CMath::TVECTOR3 tOrigin, CMath::TVECTOR3 tDirection, std::vector<TRayHit>& results, float fMaxDistance, CEntityMask* cMask = nullptr);
 
 private:
 
 #ifdef MULTI_THREADING
 
-#define BITSETSIZE			512
-#define RIGIDBODYTHREADS	5
+#define BITSETSIZE			4096
+#define RIGIDBODYTHREADS	3
 
-	//std::mutex										m_cWorkingMutex;
 	std::mutex										m_cMainMutex;
 	std::mutex										m_cMutexLock;
 
@@ -121,11 +117,10 @@ private:
 	std::vector<std::thread>						threads;
 
 	std::bitset<BITSETSIZE>							m_cBitMask;
-	//unsigned										m_cBitMask[BITSETSIZE];
 
+	float											m_fDelta;
+	short											m_nFinishedThreads;
 	bool											m_bShutDownFlag;
-	double											m_dDelta;
-	size_t											m_iFinishedThreads;
 #endif // MUTLI_THREADING	
 
 	void UpdateComponentLists();
@@ -135,9 +130,9 @@ private:
 	void PairwiseCollisionCheck(ICollider* pcA, ICollider* pcB, int nCollisionType, bool bIsTriggerCollision);
 	int GetCollisionType(ICollider* pcA, ICollider* pcB);
 
-	void UpdateBoxBoxCollision(CBoxCollider* pcA, CBoxCollider* pcB, bool bIsTriggerCollision, bool& bIsColliding);
-	void UpdateCapsuleCapsuleCollision(CCapsuleCollider* pcA, CCapsuleCollider* pcB, bool bIsTriggerCollision, bool& bIsColliding);
-	void UpdateBoxCapsuleCollision(CBoxCollider* pcA, CCapsuleCollider* pcB, bool bIsTriggerCollision, bool bReverseOrder, bool& bIsColliding);
+	void UpdateBoxBoxCollision(CBoxCollider* pcA, CBoxCollider* pcB, bool bIsTrigger, bool& bIsColliding);
+	void UpdateCapsuleCapsuleCollision(CCapsuleCollider* pcA, CCapsuleCollider* pcB, bool bIsTrigger, bool& bIsColliding);
+	void UpdateBoxCapsuleCollision(CBoxCollider* pcA, CCapsuleCollider* pcB, bool bIsTrigger, bool bReverseOrder, bool& bIsColliding);
 
 	bool IsCollidingBoxBox(CBoxCollider* pcA, CBoxCollider* pcB, TCollision& tCollision);
 	bool IsCollidingCapsuleCapsule(CCapsuleCollider* pcA, CCapsuleCollider* pcB, TCollision& tCollision);
@@ -168,7 +163,7 @@ private:
 	void SetStaticGridPositions(ICollider* collider, CMath::TVECTOR2 tOverlapX, CMath::TVECTOR2 tOverlapZ);
 	void SetDynamicGridPositions(ICollider* collider, CMath::TVECTOR2 tOverlapX, CMath::TVECTOR2 tOverlapZ);
 
-	static bool IsCollidingRayBox(CBoxCollider* pcBoxCollider, CMath::TVECTOR3 tRayOrigin, CMath::TVECTOR3 tRayDirection, float fMaxDistance, CMath::TVECTOR3& tCollisionPoint);
-	static bool IsCollidingRayCapsule(CCapsuleCollider* pCapsuleCollider, CMath::TVECTOR3 tRayOrigin, CMath::TVECTOR3 tRayDirection, float fMaxDistance, CMath::TVECTOR3& tCollisionPoint);
+	static bool IsCollidingRayBox(CBoxCollider* pcBoxCollider, CMath::TVECTOR3 tRayOrigin, CMath::TVECTOR3 tRayDirection, float fMaxDistance, CMath::TVECTOR3& tCollisionPoint, CMath::TVECTOR3& tCollisionExit);
+	static bool IsCollidingRayCapsule(CCapsuleCollider* pCapsuleCollider, CMath::TVECTOR3 tRayOrigin, CMath::TVECTOR3 tRayDirection, float fMaxDistance, CMath::TVECTOR3 & tCollisionEntry, CMath::TVECTOR3& tCollisionExit);
 };
 

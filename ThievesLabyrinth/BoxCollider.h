@@ -16,6 +16,7 @@ public:
 	***************/
 
 	CMath::TVECTOR3 GetCenter();
+	CMath::TVECTOR3 GetLocalCenter();
 	CMath::TVECTOR3 GetExtent();
 
 	/***************

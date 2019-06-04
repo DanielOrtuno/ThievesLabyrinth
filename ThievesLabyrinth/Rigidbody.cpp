@@ -1,5 +1,6 @@
 #include "Rigidbody.h"
 #include "EnumTypes.h"
+#include "Entity.h"
 
 
 CRigidbody::CRigidbody(IEntity* pcOwner) : IComponent(pcOwner)

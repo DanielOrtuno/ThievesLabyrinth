@@ -1,28 +1,22 @@
+//#define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <DbgHelp.h>
-//#include <windowsx.h>
-//#include <tchar.h>
-#include <iostream>
-//#include "RenderManager.h"
-//#include <bitset>
-//#include "InputManager.h"
-//#include "PhysicsManager.h"
-//#include "LevelManager.h"
-//#include "AudioManager.h"
-#include "DebugManager.h"
-//#include "Transform.h"
-#include "GameLogic.h"
 #include <random>
 #include <time.h>
+#include <iostream>
+
+#include "DebugManager.h"
+#include "GameLogic.h"
 
 #pragma comment (lib,"Dbghelp.lib")
-
-
 
 static TCHAR szWindowClass[] = _T("Thieves Labyrinth");
 static TCHAR szTitle[] = _T("Thieves Labyrinth");
 
 HINSTANCE hInst;
+
+#define FULLSCREEN 1
+#define CONSOLE 0
 
 int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
@@ -31,7 +25,7 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 	SetUnhandledExceptionFilter(&CDebugManager::errorFunc);
 
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
-	//_CrtSetBreakAlloc(26453);
+	//_CrtSetBreakAlloc(230574);
 	CoInitializeEx(NULL, COINIT_MULTITHREADED);
 
 	WNDCLASSEX windowDesc;
@@ -41,12 +35,12 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 	windowDesc.cbClsExtra = 0;
 	windowDesc.cbWndExtra = 0;
 	windowDesc.hInstance = hInstance;
-	windowDesc.hIcon = LoadIcon(hInstance, IDI_APPLICATION);
-	windowDesc.hCursor = LoadCursor(NULL, IDC_ARROW);
+	windowDesc.hIcon = LoadIcon(hInstance, IDI_ASTERISK);
+	windowDesc.hCursor = LoadCursorFromFile(L"../Assets/GameCursor.cur");
 	windowDesc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
 	windowDesc.lpszMenuName = NULL;
 	windowDesc.lpszClassName = szWindowClass;
-	windowDesc.hIconSm = LoadIcon(windowDesc.hInstance, IDI_APPLICATION);
+	windowDesc.hIconSm = LoadIcon(windowDesc.hInstance, IDI_ASTERISK);
 
 
 	if (!RegisterClassEx(&windowDesc))
@@ -57,7 +51,35 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
 	hInst = hInstance;
 
-	HWND windowHandle = CreateWindow(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 1024, 576, NULL, NULL, hInstance, NULL);
+	#if CONSOLE
+
+	AllocConsole();
+	FILE* new_std_in_out;
+	freopen_s(&new_std_in_out, "CONOUT$", "w", stdout);
+	freopen_s(&new_std_in_out, "CONIN$", "r", stdin);
+	std::cout << "I can smell the debug:" << std::endl;
+
+	#endif // CONSOLE
+
+
+	int w = GetSystemMetrics(SM_CXSCREEN);
+	int h = GetSystemMetrics(SM_CYSCREEN);
+
+	long type = 0;
+	#if FULLSCREEN
+	type = WS_POPUP;
+	#else
+	type = WS_OVERLAPPEDWINDOW;
+	w /= 2;
+	h /= 2;
+	#endif
+
+
+	HWND windowHandle = CreateWindow(szWindowClass, szTitle,
+		type,
+		CW_USEDEFAULT, CW_USEDEFAULT,
+		w, h,
+		NULL, NULL, hInstance, NULL);
 
 	if (!windowHandle)
 	{
@@ -66,17 +88,17 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 	}
 
 	SetPriorityClass(GetCurrentProcess(), ABOVE_NORMAL_PRIORITY_CLASS);
-	ShowWindow(windowHandle, nCmdShow);
+	ShowWindow(windowHandle, 
+	#if FULLSCREEN
+	w / h
+	#else
+	SW_SHOW
+	#endif
+	);
 	UpdateWindow(windowHandle);
 
-	AllocConsole();
-	FILE* new_std_in_out;
-	freopen_s(&new_std_in_out, "CONOUT$", "w", stdout);
-	freopen_s(&new_std_in_out, "CONIN$", "r", stdin);
-	std::cout << "I can smell the debug:" << std::endl;
 
 	CGameLogic* pcGameLogic = new CGameLogic(windowHandle);
-
 
 	MSG msg;
 	while (true)
@@ -94,7 +116,6 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 		}
 		else
 		{
-			//std::cout << rand() << std::endl;
 			pcGameLogic->Update();
 			CInputManager::UpdatePresses();
 		}

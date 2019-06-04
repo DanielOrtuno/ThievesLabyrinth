@@ -115,6 +115,7 @@ CStats & CStats::operator=(CStats & cCopy)
 
 	m_fMovementSpeed = cCopy.GetMovementSpeed();
 	m_fBaseDamage = cCopy.GetBaseDamage();
+	m_fAttackSpeed = cCopy.GetAttackSpeed();
 
 	return *this;
 }

@@ -3,15 +3,13 @@
 #include "GUIManager.h"
 #include "AudioManager.h"
 #include "RenderManager.h"
+#include "EntityManager.h"
 
 #include "Entity.h"
 
 #include <iostream>
 #include <string>
 
-
-std::vector<CPlayerEntity>				CEventManager::m_cEntityReceivers;
-std::queue<TEntityMessage>				CEventManager::m_cEntityMessages;
 
 std::queue<TDebugMessage>*				CEventManager::m_cDebugMessages;
 std::queue<TDebugLineMessage>*			CEventManager::m_cDebugLineMessages;
@@ -20,8 +18,6 @@ std::queue<TWindowResizeMessage>*		CEventManager::m_cResizeMessages;
 std::queue<TCollisionMessage>*			CEventManager::m_cCollisionMessages;
 std::queue<THudMessage>*				CEventManager::m_cHudMessages;
 
-bool TAudioMessage::bTrue;
-int TAudioMessage::nType, TAudioMessage::nSound;
 
 
 
@@ -41,21 +37,14 @@ std::string TDebugMessage::GetDebugMessage()
 #pragma endregion
 
 #pragma region DebugLine
+TDebugLineMessage::TDebugLineMessage()
+{
+}
 //DebugLineMessage
 TDebugLineMessage::TDebugLineMessage(CMath::TVECTOR3 _tPosition, CMath::TVECTOR4 _tColor)
 {
 	m_tPosition = _tPosition;
 	m_tColor = _tColor;
-}
-
-CMath::TVECTOR3 TDebugLineMessage::GetPosition()
-{
-	return m_tPosition;
-}
-
-CMath::TVECTOR4 TDebugLineMessage::GetColor()
-{
-	return m_tColor;
 }
 
 #pragma endregion
@@ -70,21 +59,6 @@ TAudioMessage::TAudioMessage(bool _bTrue, int _nType, int _nSound)
 	nSound = _nSound;
 }
 
-bool TAudioMessage::GetTruth()
-{
-	return bTrue;
-}
-
-int TAudioMessage::GetType()
-{
-	return nType;
-}
-
-int TAudioMessage::GetSound()
-{
-	return nSound;
-}
-
 #pragma endregion
 
 #pragma region EntityMessage
@@ -95,11 +69,6 @@ TEntityMessage::TEntityMessage(int _nEntityID)
 	nEntityID = _nEntityID;
 }
 
-int TEntityMessage::GetID()
-{
-	return nEntityID;
-}
-
 #pragma endregion
 
 #pragma region Collision
@@ -107,29 +76,15 @@ int TEntityMessage::GetID()
 TCollisionMessage::TCollisionMessage(int _nCollider, int _nCollidingWith, int _nCollisionType)
 {
 	nCollider = _nCollider;
-	nCollidingWith = _nCollidingWith;
+	nCollidingWidth = _nCollidingWith;
 	nCollisionType = _nCollisionType;
-}
-
-int TCollisionMessage::GetCollider()
-{
-	return nCollider;
-}
-
-int TCollisionMessage::GetCollidingWith()
-{
-	return nCollidingWith;
-}
-
-int TCollisionMessage::GetCollisionType()
-{
-	return nCollisionType;
 }
 
 #pragma endregion
 
 #pragma region EventManager
-CEventManager::CEventManager(CRenderManager* pcRenderer)
+
+CEventManager::CEventManager(CRenderManager* pcRenderer, CAudioManager* pcAudio, CEntityManager* pcEntity)
 {
 	m_cDebugMessages = new std::queue<TDebugMessage>;
 	m_cDebugLineMessages = new std::queue<TDebugLineMessage>;
@@ -138,22 +93,23 @@ CEventManager::CEventManager(CRenderManager* pcRenderer)
 	m_cCollisionMessages = new std::queue<TCollisionMessage>;
 	m_cHudMessages = new std::queue<THudMessage>;
 	m_pcRenderManager = pcRenderer;
+	m_pcAudioManager = pcAudio;
+	m_pcEntityManager = pcEntity;
 
 #ifdef MULTI_THREADING
 
 	m_nThreadCount = 0;
 	m_nWorkingThreads = 0;
 	m_bShutDownFlag = false;
-	for (size_t i = 0; i < 1; i++)
-	{
-		m_Threads.push_back(std::thread(&CEventManager::ParseDebugMessage, this));
-		m_Threads.push_back(std::thread(&CEventManager::ParseDebugLineMessage, this));
-		m_Threads.push_back(std::thread(&CEventManager::ParseAudioMessage, this));
-		m_Threads.push_back(std::thread(&CEventManager::ParseCollissionMessage, this));
-		m_Threads.push_back(std::thread(&CEventManager::ParseResizeMessage, this));
-		m_Threads.push_back(std::thread(&CEventManager::ParseHUDMessage, this));
-		m_nThreadCount += 6;
-	}
+	
+	m_Threads.emplace_back(&CEventManager::ParseDebugMessage, this);
+	m_Threads.emplace_back(&CEventManager::ParseDebugLineMessage, this);
+	m_Threads.emplace_back(&CEventManager::ParseAudioMessage, this);
+	m_Threads.emplace_back(&CEventManager::ParseCollissionMessage, this);
+	m_Threads.emplace_back(&CEventManager::ParseResizeMessage, this);
+	//m_Threads.emplace_back(&CEventManager::ParseHUDMessage, this);
+	m_nThreadCount += 5;
+	
 
 #endif // MULTI_THREADING
 
@@ -177,10 +133,7 @@ CEventManager::~CEventManager()
 	m_cGunCondition.notify_all();
 	m_cMainMutex.unlock();
 
-	for (auto& thread : m_Threads)
-	{
-		thread.join();
-	}
+	for (auto& thread : m_Threads) thread.join();
 
 #endif // MULTI_THREADING
 
@@ -188,11 +141,6 @@ CEventManager::~CEventManager()
 }
 
 //EventManager
-void CEventManager::AddPlayerReceiver(CPlayerEntity tReceiver)
-{
-	m_cEntityReceivers.push_back(tReceiver);
-}
-
 void CEventManager::SendDebugMessage(TDebugMessage tMessage)
 {
 	m_cDebugMessages->push(tMessage);
@@ -225,7 +173,31 @@ void CEventManager::SendCollisionMessage(TCollisionMessage tMessage)
 IEntity* CEventManager::SendEntityMessage(TEntityMessage tMessage)
 {
 	//SendDebugMessage(TDebugMessage(std::string(std::to_string(CEntityManager::GetEntity(tMessage.GetID())->m_nEntityType) + "Returned")));
-	return CEntityManager::GetEntity(tMessage.GetID());
+	return CEntityManager::GetEntity(tMessage.nEntityID);
+}
+
+void CEventManager::ClearMessages()
+{
+	while (!m_cAudioMessages->empty())
+	{
+		m_cAudioMessages->pop();
+	}
+	while (!m_cCollisionMessages->empty())
+	{
+		m_cCollisionMessages->pop();
+	}
+	while (!m_cDebugLineMessages->empty())
+	{
+		m_cDebugLineMessages->pop();
+	}
+	while (!m_cDebugMessages->empty())
+	{
+		m_cDebugMessages->pop();
+	}
+	while (!m_cResizeMessages->empty())
+	{
+		m_cResizeMessages->pop();
+	}
 }
 
 #ifdef MULTI_THREADING
@@ -234,16 +206,12 @@ void CEventManager::ParseDebugMessage()
 {
 	std::unique_lock<std::mutex> cGunLock(m_cMutexLock);
 	m_cGunCondition.wait(cGunLock);
-
-
-	std::cout << "Thread: " << std::this_thread::get_id() << " started in DebugMessage\n";
-	
-
 	while (!m_bShutDownFlag)
 	{
 		while (!m_cDebugMessages->empty())
 		{
-			CDebugManager::DebugLog(m_cDebugMessages->front());
+			CDebugManager::DebugLog(
+				m_cDebugMessages->front());
 
 			m_cDebugMessages->pop();
 		}
@@ -260,16 +228,12 @@ void CEventManager::ParseDebugLineMessage()
 {
 	std::unique_lock<std::mutex> cGunLock(m_cMutexLock);
 	m_cGunCondition.wait(cGunLock);
-
-
-	std::cout << "Thread: " << std::this_thread::get_id() << " started in DebugLineMessage\n";
-
-
 	while (!m_bShutDownFlag)
 	{
 		while (!m_cDebugLineMessages->empty())
 		{
-			CDebugManager::AddDebugVertex(m_cDebugLineMessages->front());
+			CDebugManager::AddDebugVertex(
+				m_cDebugLineMessages->front());
 
 			m_cDebugLineMessages->pop();
 		}
@@ -286,18 +250,15 @@ void CEventManager::ParseAudioMessage()
 {
 	std::unique_lock<std::mutex> cGunLock(m_cMutexLock);
 	m_cGunCondition.wait(cGunLock);
-
-
-	std::cout << "Thread: " << std::this_thread::get_id() << " started in AudioMessage\n";
-
-
 	while (!m_bShutDownFlag)
 	{
 		while (!m_cAudioMessages->empty())
 		{
-
-			CAudioManager::ReceiveSoundRequest(m_cAudioMessages->front().GetTruth(), m_cAudioMessages->front().GetType(), m_cAudioMessages->front().GetSound());
-
+			m_pcAudioManager->ReceiveSoundRequest(
+				m_cAudioMessages->front().bTrue, 
+				m_cAudioMessages->front().nType, 
+				m_cAudioMessages->front().nSound
+			);
 
 			m_cAudioMessages->pop();
 		}
@@ -314,18 +275,16 @@ void CEventManager::ParseCollissionMessage()
 {
 	std::unique_lock<std::mutex> cGunLock(m_cMutexLock);
 	m_cGunCondition.wait(cGunLock);
-
-	
-	std::cout << "Thread: " << std::this_thread::get_id() << " started in CollisionMessage\n";
-	
-
+	srand((unsigned)time(NULL));
 	while (!m_bShutDownFlag)
 	{
 		while (!m_cCollisionMessages->empty())
 		{
-			TCollisionMessage m_tMessage = m_cCollisionMessages->front();
-
-			CEntityManager::NotifyCollisionMessage(m_tMessage.GetCollider(), m_tMessage.GetCollidingWith(), m_tMessage.GetCollisionType());
+			m_pcEntityManager->NotifyCollisionMessage(
+				m_cCollisionMessages->front().nCollider, 
+				m_cCollisionMessages->front().nCollidingWidth, 
+				m_cCollisionMessages->front().nCollisionType
+			);
 
 			m_cCollisionMessages->pop();
 		}
@@ -342,16 +301,13 @@ void CEventManager::ParseResizeMessage()
 {
 	std::unique_lock<std::mutex> cGunLock(m_cMutexLock);
 	m_cGunCondition.wait(cGunLock);
-
-	
-	std::cout << "Thread: " << std::this_thread::get_id() << " started in ResizeMessage\n";
-	
-
 	while (!m_bShutDownFlag)
 	{
 		while (!m_cResizeMessages->empty())
 		{
-			m_pcRenderManager->ResizeEvent((float)m_cResizeMessages->front().GetWidth(), (float)m_cResizeMessages->front().GetHeight());
+			m_pcRenderManager->ResizeEvent(
+				(float)m_cResizeMessages->front().nWidth, 
+				(float)m_cResizeMessages->front().nHeight);
 
 			m_cResizeMessages->pop();
 		}
@@ -368,17 +324,16 @@ void CEventManager::ParseHUDMessage()
 {
 	std::unique_lock<std::mutex> cGunLock(m_cMutexLock);
 	m_cGunCondition.wait(cGunLock);
-
-	std::cout << "Thread: " << std::this_thread::get_id() << " started in HUDMessage\n";
-	
-
 	while (!m_bShutDownFlag)
 	{
 		while (!m_cHudMessages->empty())
 		{
-			THudMessage m_tMessage = m_cHudMessages->front();
-
-			CGUIManager::SetPlayerValues(m_tMessage.GetCurrentHealth(), m_tMessage.GetMaxHealth(), m_tMessage.GetCurrentMana(), m_tMessage.GetMaxMana());
+			CGUIManager::SetPlayerValues(
+				m_cHudMessages->front().fCurrHealth, 
+				m_cHudMessages->front().fMaxHealth, 
+				m_cHudMessages->front().fCurrMana, 
+				m_cHudMessages->front().fMaxMana
+			);
 
 			m_cHudMessages->pop();
 		}
@@ -392,6 +347,7 @@ void CEventManager::ParseHUDMessage()
 }
 
 #endif // MULTI_THREADING
+
 #pragma endregion
 
 #pragma region WindowResize
@@ -402,16 +358,6 @@ TWindowResizeMessage::TWindowResizeMessage(unsigned int _nWidth, unsigned int _n
 	nHeight = _nHeight;
 }
 
-int TWindowResizeMessage::GetWidth()
-{
-	return nWidth;
-}
-
-int TWindowResizeMessage::GetHeight()
-{
-	return nHeight;
-}
-
 #pragma endregion
 
 #pragma region HUD
@@ -420,26 +366,6 @@ THudMessage::THudMessage(float _fCurrHealth, float _fMaxHealth, float _fCurrMana
 {
 	fCurrHealth = _fCurrHealth;	fMaxHealth = _fMaxHealth;
 	fCurrMana = _fCurrMana;		fMaxMana = _fMaxMana;
-}
-
-float THudMessage::GetCurrentHealth()
-{
-	return fCurrHealth;
-}
-
-float THudMessage::GetMaxHealth()
-{
-	return fMaxHealth;
-}
-
-float THudMessage::GetCurrentMana()
-{
-	return fCurrMana;
-}
-
-float THudMessage::GetMaxMana()
-{
-	return fMaxMana;
 }
 
 void CEventManager::SendHudMessage(THudMessage cMessage)
@@ -455,19 +381,12 @@ void CEventManager::Notify()
 
 	std::unique_lock<std::mutex> cULock(m_cMainMutex);
 
-
 	m_cGunCondition.notify_all();
-	m_cMainWait.wait(cULock, [&]()
-	{
-		return m_nThreadCount == m_nWorkingThreads;
-	});
+	m_cMainWait.wait(cULock, [&](){ return m_nThreadCount == m_nWorkingThreads; });
 	cULock.unlock();
-
 	m_nWorkingThreads = 0;
 
-
-#endif	
-#ifndef MULTI_THREADING
+#else
 
 	while (!m_cDebugMessages->empty())
 	{
@@ -494,7 +413,9 @@ void CEventManager::Notify()
 
 	while (!m_cResizeMessages->empty())
 	{
-		CRenderManager::ResizeEvent((float)m_cResizeMessages->front().GetWidth(), (float)m_cResizeMessages->front().GetHeight());
+		m_pcRenderManager->ResizeEvent(
+			(float)m_cResizeMessages->front().GetWidth(),
+			(float)m_cResizeMessages->front().GetHeight());
 
 		m_cResizeMessages->pop();
 	}

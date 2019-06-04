@@ -3,8 +3,8 @@
 #include "BoxCollider.h"
 #include "Entity.h"
 #include "Transform.h"
-
-#include "Time.h"
+#include "EventManager.h"
+#include "MeshRenderer.h"
 
 CSpikeTrapController::CSpikeTrapController(IEntity* pcOwner) : IComponent(pcOwner)
 {
@@ -18,8 +18,9 @@ CSpikeTrapController::CSpikeTrapController(IEntity* pcOwner) : IComponent(pcOwne
 	m_fDamagePerHit = 2.0f;
 }
 
-void CSpikeTrapController::Update()
+void CSpikeTrapController::Update(float fDeltaTime)
 {
+
 	if(m_bIsTrapActive)
 	{
 		if(m_fCurrentTime >= m_fActiveTime)
@@ -38,7 +39,7 @@ void CSpikeTrapController::Update()
 
 	}
 
-	m_fCurrentTime += CTime::GetDelta();
+	m_fCurrentTime += fDeltaTime;
 }
 
 void CSpikeTrapController::SetDamage(float fDamage)
@@ -55,13 +56,17 @@ void CSpikeTrapController::ToggleTrap()
 {
 	if(m_bIsTrapActive)
 	{
-		m_pcTransform->SetRotation(CMath::QuaternionFromAxisAngle({ 1, 0, 0 }, 180));
+		//m_pcTransform->SetPosition(m_pcTransform->GetPosition() - CMath::TVECTOR3{ 0,1.5f,0 });
+		//m_pcTransform->SetRotation(CMath::QuaternionFromAxisAngle({ 1, 0, 0 }, 180));
 		m_pcCollider->SetActiveState(false);
+		m_pcOwner->GetComponent<CMeshRenderer>()->SetActiveState(false);
 	}
 	else
 	{
-		m_pcTransform->SetRotation(CMath::QuaternionFromAxisAngle({ 1, 0, 0 }, 0));
+		CEventManager::SendAudioMessage(TAudioMessage(true, eAudio::SFX, eSFX::SPIKES));
+		//m_pcTransform->SetPosition(m_pcTransform->GetPosition() + CMath::TVECTOR3{0,1.5f,0});
 		m_pcCollider->SetActiveState(true);
+		m_pcOwner->GetComponent<CMeshRenderer>()->SetActiveState(true);
 	}
 
 	m_fCurrentTime = 0.0f;

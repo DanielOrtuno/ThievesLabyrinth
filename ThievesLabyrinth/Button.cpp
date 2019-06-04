@@ -18,6 +18,11 @@ CButton::CButton(void (*pFunction)(), const WCHAR* buttonText, int width, int he
 }
 
 
+bool CButton::IsHovered()
+{
+	return m_bHovered;
+}
+
 CButton::~CButton()
 {
 	m_pFunction = nullptr;
@@ -50,7 +55,12 @@ void CButton::Update()
 		else
 		{
 			// TODO: Indicate the button is moused-over
+			m_bHovered = true;
 		}
+	}
+	else
+	{
+		m_bHovered = false;
 	}
 }
 

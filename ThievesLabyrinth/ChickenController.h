@@ -6,33 +6,27 @@ class CProjectileEntity;
 class CRigidbody;
 class CAnimatorComponent;
 class CStats;
+class CParticleEmitter;
 
 class CChickenController : public IEnemyController
 {
-	CProjectileEntity*		m_pcExplosion;
-	CTransform*				m_pcTransform;
-	CTransform*				m_pcTarget;
-	CRigidbody*				m_pcRigidbody;
-	//CAnimatorComponent*		m_pcAnimator;
-	CStats*					m_pcStats;
-
-	// Used to place the explosion in case the chicken dies
+private:
+	CParticleEmitter*		m_pcEmitter;
 	CMath::TVECTOR3			m_tLastPos;
-
 	bool					m_bExploding;
-	
-	void					Explode();
 
 public:
-
 	CChickenController(IEntity* pcOwner);
+	~CChickenController();
 
-	void					Update();
 
-	void					GetPlayerReference();
+	void Update(float fDeltaTime) override;
 
 	CChickenController& operator=(CChickenController& cCopy);
 
-	~CChickenController();
+private:
+	void InitializeProjectile() override;
+	void Explode();
+
 };
 
